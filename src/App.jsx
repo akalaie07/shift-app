@@ -118,28 +118,28 @@ function Home({ shifts, onUpdate }) {
   return (
     <div className="mb-6 flex justify-center">
       {runningShift ? (
-        <motion.div initial={{opacity:0, scale:0.8}} animate={{opacity:1, scale:1}} className="bg-white p-10 rounded-xl shadow-xl relative flex flex-col items-center">
-          <div className="relative w-64 h-64 mb-6">
-            <svg className="w-64 h-64" viewBox="0 0 36 36">
+        <motion.div initial={{opacity:0, scale:0.8}} animate={{opacity:1, scale:1}} className="bg-white p-12 rounded-2xl shadow-2xl relative flex flex-col items-center">
+          <div className="relative w-72 h-72 mb-8">
+            <svg className="w-72 h-72" viewBox="0 0 36 36">
               <path className="text-gray-300" strokeWidth="3" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
               <motion.path strokeWidth="3" stroke="#22c55e" fill="none" strokeDasharray="100" strokeDashoffset={100-progressPercent} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center text-center font-semibold text-gray-800">
               <h2 className="text-3xl font-bold text-red-700 mb-2">Schicht läuft</h2>
-              <p className="text-xl">Gestartet: {format(new Date(runningShift.actualStart),"HH:mm")}</p>
-              <p className="text-xl mt-2">Dauer: {liveDuration}</p>
+              <p className="text-2xl">Gestartet: {format(new Date(runningShift.actualStart),"HH:mm")}</p>
+              <p className="text-2xl mt-2">Dauer: {liveDuration}</p>
             </div>
           </div>
-          <button onClick={()=>handleEnd(runningShift)} className="mt-4 bg-red-600 text-white px-6 py-3 text-lg rounded-lg hover:bg-red-700 transition">Schicht beenden</button>
+          <button onClick={()=>handleEnd(runningShift)} className="mt-6 bg-red-600 text-white px-8 py-4 text-xl rounded-2xl hover:bg-red-700 transition">Schicht beenden</button>
         </motion.div>
       ) : nextShift ? (
-        <motion.div initial={{opacity:0}} animate={{opacity:1}} className="bg-white p-10 rounded-xl shadow-xl flex flex-col items-center">
-          <h2 className="text-3xl font-bold text-red-700 mb-4">Nächste Schicht</h2>
-          <p className="text-2xl text-gray-800 font-semibold">{format(parseISO(nextShift.start),"dd.MM.yyyy HH:mm")}</p>
+        <motion.div initial={{opacity:0}} animate={{opacity:1}} className="bg-white p-12 rounded-2xl shadow-2xl flex flex-col items-center">
+          <h2 className="text-4xl font-bold text-red-700 mb-4">Nächste Schicht</h2>
+          <p className="text-3xl text-gray-800 font-semibold">{format(parseISO(nextShift.start),"dd.MM.yyyy HH:mm")}</p>
         </motion.div>
       ) : (
-        <motion.div initial={{opacity:0}} animate={{opacity:1}} className="bg-white p-10 rounded-xl shadow-xl flex flex-col items-center">
-          <h2 className="text-3xl font-bold text-red-700">Du hast aktuell keine Schicht</h2>
+        <motion.div initial={{opacity:0}} animate={{opacity:1}} className="bg-white p-12 rounded-2xl shadow-2xl flex flex-col items-center">
+          <h2 className="text-4xl font-bold text-red-700">Du hast aktuell keine Schicht</h2>
         </motion.div>
       )}
     </div>
