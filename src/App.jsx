@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, addWeeks, subWeeks, eachDayOfInterval, parseISO, isSameDay, format, differenceInMinutes } from "date-fns";
+import { startOfMonth, endOfMonth, eachDayOfInterval, parseISO, isSameDay, format, differenceInMinutes } from "date-fns";
 import Navbar from "./Navbar";
 import ShiftList from "./ShiftList";
 
@@ -8,7 +8,6 @@ const STORAGE_KEY = "shifts_v1";
 function saveShifts(shifts) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(shifts));
 }
-
 function loadShifts() {
   const raw = localStorage.getItem(STORAGE_KEY);
   if (!raw) return [];
@@ -51,21 +50,18 @@ function Home({ shifts }) {
 
 // ------------------- Kalender (Monat) -------------------
 function Calendar({ shifts, currentMonthStart, setMonthStart }) {
-  const monthStart = startOfMonth(currentMonthStart);
   const monthEnd = endOfMonth(currentMonthStart);
-
-  const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
+  const days = eachDayOfInterval({ start: currentMonthStart, end: monthEnd });
 
   const shiftsForDay = (day) => shifts.filter(s => isSameDay(parseISO(s.start), day));
 
   return (
     <div id="kalender" className="mb-6">
       <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
-        <button onClick={() => setMonthStart(new Date(monthStart.setMonth(monthStart.getMonth() - 1)))} className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition">← Vorheriger Monat</button>
+        <button onClick={() => setMonthStart(new Date(currentMonthStart.getFullYear(), currentMonthStart.getMonth() - 1, 1))} className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition">← Vorheriger Monat</button>
         <span className="text-xl font-semibold text-red-700">{format(currentMonthStart, "MMMM yyyy")}</span>
-        <button onClick={() => setMonthStart(new Date(monthStart.setMonth(monthStart.getMonth() + 1)))} className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition">Nächster Monat →</button>
+        <button onClick={() => setMonthStart(new Date(currentMonthStart.getFullYear(), currentMonthStart.getMonth() + 1, 1))} className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition">Nächster Monat →</button>
       </div>
-
       <div className="grid grid-cols-7 gap-2">
         {days.map(day => {
           const dayShifts = shiftsForDay(day);
@@ -85,32 +81,39 @@ function Calendar({ shifts, currentMonthStart, setMonthStart }) {
   );
 }
 
-
-
 // ------------------- APP -------------------
 export default function App() {
   const [shifts, setShifts] = useState([]);
   const [activePage, setActivePage] = useState("home");
-  const [currentMonthStart, setMonthStart] = useState(startOfMonth(new Date()));
-  const [currentWeekStart, setWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const [currentMonthStart, setMonthStart] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
 
   useEffect(() => setShifts(loadShifts()), []);
 
-  const handleCreate = (shift) => {
-    const updated = [...shifts, shift];
-    setShifts(updated);
-    saveShifts(updated);
+  // ----- Automatisches Starten der Schichten -----
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const now = new Date();
+      const updated = shifts.map(s => {
+        if (!s.running && !s.end && new Date(s.start) <= now) {
+          return { ...s, running: true, actualStart: now.toISOString() };
+        }
+        return s;
+      });
+      setShifts(updated);
+      saveShifts(updated);
+    }, 1000); // prüft jede Sekunde
+    return () => clearInterval(timer);
+  }, [shifts]);
+
+  const handleUpdate = (updatedShifts) => {
+    setShifts(updatedShifts);
+    saveShifts(updatedShifts);
   };
 
   const handleDelete = (id) => {
     const updated = shifts.filter(s => s.id !== id);
     setShifts(updated);
     saveShifts(updated);
-  };
-
-  const handleUpdate = (updatedShifts) => {
-    setShifts(updatedShifts);
-    saveShifts(updatedShifts);
   };
 
   return (
@@ -120,15 +123,7 @@ export default function App() {
       <div className="max-w-full sm:max-w-6xl mx-auto bg-white shadow-lg rounded-lg p-4 sm:p-6 mt-4">
         {activePage === "home" && <Home shifts={shifts} />}
         {activePage === "kalender" && <Calendar shifts={shifts} currentMonthStart={currentMonthStart} setMonthStart={setMonthStart} />}
-        {activePage === "schichten" && (
-          <ShiftList
-            shifts={shifts}
-            onUpdate={handleUpdate}
-            onDelete={handleDelete}
-            currentWeekStart={currentWeekStart}
-            setWeekStart={setWeekStart}
-          />
-        )}
+        {activePage === "schichten" && <ShiftList shifts={shifts} onUpdate={handleUpdate} onDelete={handleDelete} />}
       </div>
     </div>
   );
