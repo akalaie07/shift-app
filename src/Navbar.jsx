@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { X, Menu } from "lucide-react"; // Icons für Hamburger & Close
+import { X, Menu } from "lucide-react";
 
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -11,18 +11,12 @@ export default function Navbar() {
 
       {/* Desktop-Menü */}
       <div className="hidden md:flex gap-6">
-        <a href="#" className="hover:text-gray-200 transition">
-          Home
-        </a>
-        <a href="#kalender" className="hover:text-gray-200 transition">
-          Kalender
-        </a>
-        <a href="#schichten" className="hover:text-gray-200 transition">
-          Schichten
-        </a>
+        <a href="#" className="hover:text-gray-200 transition">Home</a>
+        <a href="#kalender" className="hover:text-gray-200 transition">Kalender</a>
+        <a href="#schichten" className="hover:text-gray-200 transition">Schichten</a>
       </div>
 
-      {/* Hamburger-Button (nur mobil sichtbar) */}
+      {/* Hamburger-Button (mobil) */}
       <button
         className="md:hidden p-2 focus:outline-none"
         onClick={() => setMenuOpen(true)}
@@ -32,7 +26,8 @@ export default function Navbar() {
 
       {/* Overlay-Menü */}
       {menuOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex flex-col items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex flex-col items-center justify-center z-50">
+          {/* Close-Button */}
           <button
             className="absolute top-4 right-4 text-white"
             onClick={() => setMenuOpen(false)}
@@ -40,14 +35,27 @@ export default function Navbar() {
             <X size={32} color="white" />
           </button>
 
-          <div className="flex flex-col gap-6 text-2xl font-semibold">
-            <a href="#" onClick={() => setMenuOpen(false)}>
+          {/* Menü-Links */}
+          <div className="flex flex-col gap-8 text-3xl font-bold text-center">
+            <a
+              href="#"
+              className="bg-red-600 hover:bg-red-700 text-white rounded-lg px-8 py-4 transition shadow-lg"
+              onClick={() => setMenuOpen(false)}
+            >
               Home
             </a>
-            <a href="#kalender" onClick={() => setMenuOpen(false)}>
+            <a
+              href="#kalender"
+              className="bg-red-600 hover:bg-red-700 text-white rounded-lg px-8 py-4 transition shadow-lg"
+              onClick={() => setMenuOpen(false)}
+            >
               Kalender
             </a>
-            <a href="#schichten" onClick={() => setMenuOpen(false)}>
+            <a
+              href="#schichten"
+              className="bg-red-600 hover:bg-red-700 text-white rounded-lg px-8 py-4 transition shadow-lg"
+              onClick={() => setMenuOpen(false)}
+            >
               Schichten
             </a>
           </div>
