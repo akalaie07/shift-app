@@ -11,10 +11,7 @@ import {
   isSameMonth,
   differenceInMinutes,
 } from "date-fns";
-
-// **Logo importieren**
 import logo from "./assets/freddy-logo.png";
-
 
 const STORAGE_KEY = "shifts_v1";
 
@@ -46,7 +43,6 @@ function nowLocalInput() {
   return new Date().toISOString().slice(0, 16);
 }
 
-// Gearbeitete Stunden im aktuellen Monat
 function getMonthHours(shifts, currentMonth) {
   const monthShifts = shifts.filter(
     (s) => s.end && isSameMonth(parseISO(s.start), currentMonth)
@@ -92,7 +88,7 @@ function NewShiftForm({ onCreate }) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex flex-col gap-4 mb-6 p-6 bg-white rounded-lg shadow-md"
+      className="flex flex-col gap-4 mb-6 p-4 sm:p-6 bg-white rounded-lg shadow-md"
     >
       <div className="flex flex-col">
         <label className="mb-1 font-semibold text-red-700">Startzeit</label>
@@ -100,7 +96,7 @@ function NewShiftForm({ onCreate }) {
           type="datetime-local"
           value={start}
           onChange={(e) => setStart(e.target.value)}
-          className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-400"
+          className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-400 w-full"
         />
       </div>
 
@@ -110,7 +106,7 @@ function NewShiftForm({ onCreate }) {
           type="datetime-local"
           value={end}
           onChange={(e) => setEnd(e.target.value)}
-          className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-400"
+          className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-400 w-full"
         />
       </div>
 
@@ -120,12 +116,12 @@ function NewShiftForm({ onCreate }) {
           type="number"
           value={pause}
           onChange={(e) => setPause(e.target.value)}
-          className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-400"
+          className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-400 w-full"
         />
       </div>
 
-      <button className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition">
-        Schicht speichern
+      <button className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition w-full sm:w-auto">
+        Schicht starten
       </button>
     </form>
   );
@@ -133,37 +129,39 @@ function NewShiftForm({ onCreate }) {
 
 function ShiftList({ shifts, onDelete }) {
   return (
-    <table className="w-full text-left border-collapse mb-6">
-      <thead>
-        <tr className="bg-red-100 text-red-700">
-          <th className="px-3 py-2">Start</th>
-          <th className="px-3 py-2">Ende</th>
-          <th className="px-3 py-2">Pause</th>
-          <th className="px-3 py-2">Dauer</th>
-          <th className="px-3 py-2">Aktionen</th>
-        </tr>
-      </thead>
-      <tbody>
-        {shifts.map((shift) => (
-          <tr key={shift.id} className="border-b hover:bg-red-50">
-            <td className="px-3 py-2">{format(parseISO(shift.start), "HH:mm")}</td>
-            <td className="px-3 py-2">
-              {shift.end ? format(parseISO(shift.end), "HH:mm") : "--:--"}
-            </td>
-            <td className="px-3 py-2">{shift.pauseMinutes}</td>
-            <td className="px-3 py-2">{minutesToHHMM(shift.durationMinutes)}</td>
-            <td className="px-3 py-2 flex gap-2">
-              <button
-                onClick={() => onDelete(shift.id)}
-                className="bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700 transition"
-              >
-                Löschen
-              </button>
-            </td>
+    <div className="overflow-x-auto mb-6">
+      <table className="w-full text-left border-collapse">
+        <thead>
+          <tr className="bg-red-100 text-red-700">
+            <th className="px-3 py-2">Start</th>
+            <th className="px-3 py-2">Ende</th>
+            <th className="px-3 py-2">Pause</th>
+            <th className="px-3 py-2">Dauer</th>
+            <th className="px-3 py-2">Aktionen</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {shifts.map((shift) => (
+            <tr key={shift.id} className="border-b hover:bg-red-50">
+              <td className="px-3 py-2">{format(parseISO(shift.start), "HH:mm")}</td>
+              <td className="px-3 py-2">
+                {shift.end ? format(parseISO(shift.end), "HH:mm") : "--:--"}
+              </td>
+              <td className="px-3 py-2">{shift.pauseMinutes}</td>
+              <td className="px-3 py-2">{minutesToHHMM(shift.durationMinutes)}</td>
+              <td className="px-3 py-2 flex gap-2">
+                <button
+                  onClick={() => onDelete(shift.id)}
+                  className="bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700 transition w-full sm:w-auto"
+                >
+                  Löschen
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -178,7 +176,7 @@ function Calendar({ shifts, currentMonth, setMonth }) {
 
   return (
     <div className="mb-6">
-      <div className="flex justify-between items-center mb-2">
+      <div className="flex justify-between items-center mb-2 flex-wrap gap-2">
         <button
           onClick={() => setMonth(subMonths(month, 1))}
           className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 transition"
@@ -193,7 +191,7 @@ function Calendar({ shifts, currentMonth, setMonth }) {
           Nächster &gt;
         </button>
       </div>
-      <div className="grid grid-cols-7 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-7 gap-2">
         {days.map((day) => (
           <div
             key={day}
@@ -250,15 +248,15 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen p-6 bg-red-50 text-gray-800">
-      <div className="max-w-4xl mx-auto bg-white shadow-lg rounded-lg p-6">
+    <div className="min-h-screen p-4 sm:p-6 bg-red-50 text-gray-800">
+      <div className="max-w-full sm:max-w-4xl mx-auto bg-white shadow-lg rounded-lg p-4 sm:p-6">
 
-        {/* Logo oben */}
+        {/* Logo */}
         <div className="flex justify-center mb-4">
-          <img src={logo} alt="Freddy Fresh Logo" className="h-50" />
+          <img src={logo} alt="Freddy Fresh Logo" className="h-20 sm:h-24" />
         </div>
 
-        <h1 className="text-3xl font-bold mb-6 text-center text-red-700">
+        <h1 className="text-2xl sm:text-3xl font-bold mb-6 text-center text-red-700">
           Freddy Fresh Schichtplaner
         </h1>
 
