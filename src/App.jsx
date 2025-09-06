@@ -11,7 +11,6 @@ import {
   differenceInMinutes,
 } from "date-fns";
 
-import logo from "./assets/freddy-logo.png";
 import Navbar from "./Navbar";
 
 const STORAGE_KEY = "shifts_v1";
@@ -62,27 +61,40 @@ function Home({ shifts }) {
     .sort((a, b) => new Date(a.start) - new Date(b.start));
   const nextShift = futureShifts[0];
 
+  const getTimeUntil = (startDate) => {
+    const diffMs = new Date(startDate) - now;
+    const diffMin = Math.max(0, Math.floor(diffMs / (1000 * 60)));
+
+    if (diffMin < 60) {
+      return `${diffMin} Min`;
+    } else if (diffMin < 24 * 60) {
+      const h = Math.floor(diffMin / 60);
+      const m = diffMin % 60;
+      return `${h} Std ${m} Min`;
+    } else {
+      const d = Math.floor(diffMin / (60 * 24));
+      const m = diffMin % (24 * 60);
+      return `${d} Tag${d > 1 ? "e" : ""} ${m} Min`;
+    }
+  };
+
   return (
     <div id="home" className="mb-6 text-center">
       {nextShift ? (
         <div className="bg-white p-6 rounded-lg shadow-md inline-block">
           <h2 className="text-2xl font-bold text-red-700 mb-2">Nächste Schicht</h2>
-          <p className="text-gray-800">
-            {format(parseISO(nextShift.start), "dd.MM.yyyy HH:mm")} -{" "}
-            {nextShift.end ? format(parseISO(nextShift.end), "HH:mm") : "--:--"}
+          <p className="text-gray-800 text-xl font-semibold">
+            {format(parseISO(nextShift.start), "dd.MM.yyyy HH:mm")}
           </p>
-          <p className="mt-2 text-gray-600">
-            Beginnt in:{" "}
-            {Math.max(
-              0,
-              Math.floor((new Date(nextShift.start) - now) / (1000 * 60))
-            )}{" "}
-            Minuten
+          <p className="mt-2 text-gray-600 font-medium">
+            Beginnt in: {getTimeUntil(nextShift.start)}
           </p>
         </div>
       ) : (
         <div className="bg-white p-6 rounded-lg shadow-md inline-block">
-          <h2 className="text-2xl font-bold text-red-700">Du hast aktuell keine Schicht</h2>
+          <h2 className="text-2xl font-bold text-red-700">
+            Du hast aktuell keine Schicht
+          </h2>
         </div>
       )}
     </div>
@@ -163,7 +175,8 @@ function NewShiftForm({ onCreate }) {
 
 // ------------------- ShiftList -------------------
 function ShiftList({ shifts, onDelete }) {
-  if (!shifts.length) return <p className="text-center text-gray-500 mb-4">Keine Schichten vorhanden</p>;
+  if (!shifts.length) 
+    return <p className="text-center text-gray-500 mb-4">Keine Schichten vorhanden</p>;
 
   return (
     <div id="schichten" className="grid gap-3 sm:grid-cols-2">
@@ -231,8 +244,7 @@ function Calendar({ shifts, currentWeekStart, setWeekStart }) {
             <div className="mb-1">{format(day, "d")}</div>
             {shiftsForDay(day).map((shift) => (
               <div key={shift.id} className="text-sm bg-red-100 text-red-800 rounded px-1 py-0.5 mb-1">
-                {shift.start ? format(parseISO(shift.start), "HH:mm") : "--:--"} -{" "}
-                {shift.end ? format(parseISO(shift.end), "HH:mm") : "--:--"}
+                {shift.start ? format(parseISO(shift.start), "HH:mm") : "--:--"}
               </div>
             ))}
           </div>
