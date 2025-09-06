@@ -1,22 +1,10 @@
 import React, { useState, useEffect } from "react";
-import {
-  format,
-  parseISO,
-  differenceInMinutes,
-  isBefore,
-  eachDayOfInterval,
-  startOfMonth,
-  endOfMonth,
-  addMonths,
-  subMonths,
-  isSameDay,
-  isSameMonth,
-} from "date-fns";
+import { format, parseISO, differenceInMinutes } from "date-fns";
 import logo from "./assets/freddy-logo.png";
 
 const STORAGE_KEY = "shifts_v1";
 
-// ------------------- Helper -------------------
+// Hilfsfunktionen
 function generateId() {
   return `${Date.now()}-${Math.floor(Math.random() * 10000)}`;
 }
@@ -27,8 +15,7 @@ function saveShifts(shifts) {
 
 function loadShifts() {
   const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) return [];
-  return JSON.parse(raw);
+  return raw ? JSON.parse(raw) : [];
 }
 
 function nowLocalInput() {
@@ -44,18 +31,7 @@ function minutesToHHMM(totalMinutes) {
   return `${sign}${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
-function getMonthHours(shifts, currentMonth) {
-  const monthShifts = shifts.filter(
-    (s) => s.end && isSameMonth(parseISO(s.start), currentMonth)
-  );
-  const totalMinutes = monthShifts.reduce(
-    (sum, s) => sum + (s.durationMinutes || 0),
-    0
-  );
-  return totalMinutes / 60;
-}
-
-// ------------------- Komponenten -------------------
+// Neue Schicht eintragen
 function NewShiftForm({ onCreate }) {
   const [plannedStart, setPlannedStart] = useState(nowLocalInput());
 
@@ -78,15 +54,13 @@ function NewShiftForm({ onCreate }) {
       onSubmit={handleSubmit}
       className="flex flex-col gap-4 mb-6 p-4 sm:p-6 bg-white rounded-lg shadow-md"
     >
-      <div className="flex flex-col">
-        <label className="mb-1 font-semibold text-red-700">Geplante Startzeit</label>
-        <input
-          type="datetime-local"
-          value={plannedStart}
-          onChange={(e) => setPlannedStart(e.target.value)}
-          className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-400 w-full"
-        />
-      </div>
+      <label className="mb-1 font-semibold text-red-700">Geplante Startzeit</label>
+      <input
+        type="datetime-local"
+        value={plannedStart}
+        onChange={(e) => setPlannedStart(e.target.value)}
+        className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-400 w-full"
+      />
       <button className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition w-full sm:w-auto">
         Schicht eintragen
       </button>
@@ -94,9 +68,9 @@ function NewShiftForm({ onCreate }) {
   );
 }
 
+// Schichtliste
 function ShiftList({ shifts, onEndShift }) {
-  if (shifts.length === 0)
-    return <p className="text-center text-gray-500 mb-4">Keine Schichten vorhanden</p>;
+  if (shifts.length === 0) return <p className="text-center text-gray-500 mb-4">Keine Schichten vorhanden</p>;
 
   return (
     <div className="grid gap-3 sm:grid-cols-2">
@@ -124,7 +98,6 @@ function ShiftList({ shifts, onEndShift }) {
               <span>{minutesToHHMM(shift.durationMinutes)}</span>
             </div>
           )}
-
           {shift.status === "running" && (
             <button
               onClick={() => onEndShift(shift.id)}
@@ -139,76 +112,11 @@ function ShiftList({ shifts, onEndShift }) {
   );
 }
 
-function Calendar({ shifts, currentMonth, setMonth }) {
-  const start = startOfMonth(currentMonth);
-  const end = endOfMonth(currentMonth);
-  const days = eachDayOfInterval({ start, end });
-
-  const hasShift = (day) =>
-    shifts.some((s) => s.actualStart && isSameDay(parseISO(s.actualStart), day));
-
-  return (
-    <div className="mb-6">
-      <div className="flex justify-between items-center mb-2">
-        <button
-          onClick={() => setMonth(subMonths(currentMonth, 1))}
-          className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 transition"
-        >
-          &lt; Vorheriger
-        </button>
-        <span className="font-semibold text-red-700">{format(currentMonth, "MMMM yyyy")}</span>
-        <button
-          onClick={() => setMonth(addMonths(currentMonth, 1))}
-          className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 transition"
-        >
-          Nächster &gt;
-        </button>
-      </div>
-      <div className="grid grid-cols-7 gap-2">
-        {days.map((day) => (
-          <div
-            key={day}
-            className={`p-2 border rounded text-center cursor-pointer ${
-              hasShift(day) ? "bg-red-200 text-red-800 font-semibold" : "bg-white"
-            } hover:bg-red-100 transition`}
-          >
-            {format(day, "d")}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function ProgressBar({ hoursWorked, monthlyGoal }) {
-  const progress = Math.min((hoursWorked / monthlyGoal) * 100, 100);
-
-  return (
-    <div className="my-4">
-      <div className="flex justify-between mb-1 text-sm font-medium text-red-700">
-        <span>Gearbeitete Stunden: {hoursWorked.toFixed(1)}h</span>
-        <span>Monatsziel: {monthlyGoal}h</span>
-      </div>
-      <div className="w-full bg-red-100 rounded-full h-4">
-        <div
-          className="bg-red-600 h-4 rounded-full transition-all"
-          style={{ width: `${progress}%` }}
-        ></div>
-      </div>
-    </div>
-  );
-}
-
-// ------------------- APP -------------------
+// App-Komponente
 export default function App() {
-  const [shifts, setShifts] = useState([]);
-  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [shifts, setShifts] = useState(loadShifts());
 
-  useEffect(() => {
-    setShifts(loadShifts());
-  }, []);
-
-  // ------------------- Automatischer Timer -------------------
+  // Timer: prüft jede Sekunde geplante Shifts
   useEffect(() => {
     const interval = setInterval(() => {
       setShifts((prevShifts) => {
@@ -227,42 +135,39 @@ export default function App() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, []); // ❌ leere Dependency-Liste
+  }, []);
 
-  // ------------------- Handler -------------------
+  // Neue Schicht hinzufügen
   const handleCreate = (shift) => {
     const updated = [...shifts, shift];
     setShifts(updated);
     saveShifts(updated);
   };
 
+  // Schicht beenden
   const handleEndShift = (id) => {
     const shift = shifts.find((s) => s.id === id);
     if (!shift) return;
 
-    // Endzeit abfragen
-    let endInput = prompt("Endzeit der Schicht (HH:MM) oder leer für jetzt:", format(new Date(), "HH:mm")) || format(new Date(), "HH:mm");
+    const endInput = prompt(
+      "Endzeit der Schicht (HH:MM) oder leer für jetzt:",
+      format(new Date(), "HH:mm")
+    ) || format(new Date(), "HH:mm");
+
     const endTime = new Date(shift.actualStart);
     const [endH, endM] = endInput.split(":").map(Number);
     endTime.setHours(endH);
     endTime.setMinutes(endM);
 
-    // Pause abfragen
-    let pauseMinutes = prompt("Hattest du Pause? Falls ja, wie viele Minuten?", "0") || "0";
-
-    const durationMinutes = Math.max(differenceInMinutes(endTime, parseISO(shift.actualStart)) - Number(pauseMinutes), 0);
+    const pauseMinutes = Number(prompt("Hattest du Pause? Falls ja, wie viele Minuten?", "0") || "0");
+    const durationMinutes = Math.max(differenceInMinutes(endTime, parseISO(shift.actualStart)) - pauseMinutes, 0);
 
     const updated = shifts.map((s) =>
       s.id === id
-        ? {
-            ...s,
-            end: endTime.toISOString(),
-            pauseMinutes: Number(pauseMinutes),
-            durationMinutes,
-            status: "finished",
-          }
+        ? { ...s, end: endTime.toISOString(), pauseMinutes, durationMinutes, status: "finished" }
         : s
     );
+
     setShifts(updated);
     saveShifts(updated);
   };
@@ -271,7 +176,6 @@ export default function App() {
     <div className="min-h-screen p-4 sm:p-6 bg-red-50 text-gray-800">
       <div className="max-w-full sm:max-w-4xl mx-auto bg-white shadow-lg rounded-lg p-4 sm:p-6">
 
-        {/* Logo */}
         <div className="flex justify-center mb-4">
           <img src={logo} alt="Freddy Fresh Logo" className="h-20 sm:h-24" />
         </div>
@@ -280,17 +184,9 @@ export default function App() {
           Freddy Fresh Schichtplaner
         </h1>
 
-        {/* Formular */}
         <NewShiftForm onCreate={handleCreate} />
-
-        {/* Kalender */}
-        <Calendar shifts={shifts} currentMonth={currentMonth} setMonth={setCurrentMonth} />
-
-        {/* Fortschrittsbalken */}
-        <ProgressBar hoursWorked={getMonthHours(shifts, currentMonth)} monthlyGoal={40} />
-
-        {/* Shift-Liste */}
         <ShiftList shifts={shifts} onEndShift={handleEndShift} />
+
       </div>
     </div>
   );
