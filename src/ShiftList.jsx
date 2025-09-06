@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { startOfWeek, endOfWeek, addWeeks, subWeeks, eachDayOfInterval, format, parseISO, isSameDay, differenceInMinutes } from "date-fns";
 
-export default function ShiftPage({ shifts, onUpdate, onDelete, currentWeekStart, setWeekStart }) {
+export default function ShiftList({ shifts, onUpdate, onDelete, currentWeekStart, setWeekStart }) {
   const [newShiftTime, setNewShiftTime] = useState("");
 
   const handleCreate = () => {

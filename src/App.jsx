@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, addWeeks, subWeeks, parseISO, isSameDay, format, differenceInMinutes } from "date-fns";
+import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, addWeeks, subWeeks, eachDayOfInterval, parseISO, isSameDay, format, differenceInMinutes } from "date-fns";
 import Navbar from "./Navbar";
 import ShiftList from "./ShiftList";
 
@@ -8,6 +8,7 @@ const STORAGE_KEY = "shifts_v1";
 function saveShifts(shifts) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(shifts));
 }
+
 function loadShifts() {
   const raw = localStorage.getItem(STORAGE_KEY);
   if (!raw) return [];
@@ -86,6 +87,7 @@ export default function App() {
   const [shifts, setShifts] = useState([]);
   const [activePage, setActivePage] = useState("home");
   const [currentMonthStart, setMonthStart] = useState(startOfMonth(new Date()));
+  const [currentWeekStart, setWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
 
   useEffect(() => setShifts(loadShifts()), []);
 
@@ -113,7 +115,15 @@ export default function App() {
       <div className="max-w-full sm:max-w-6xl mx-auto bg-white shadow-lg rounded-lg p-4 sm:p-6 mt-4">
         {activePage === "home" && <Home shifts={shifts} />}
         {activePage === "kalender" && <Calendar shifts={shifts} currentMonthStart={currentMonthStart} setMonthStart={setMonthStart} />}
-        {activePage === "schichten" && <ShiftList shifts={shifts} onUpdate={handleUpdate} onDelete={handleDelete} />}
+        {activePage === "schichten" && (
+          <ShiftList
+            shifts={shifts}
+            onUpdate={handleUpdate}
+            onDelete={handleDelete}
+            currentWeekStart={currentWeekStart}
+            setWeekStart={setWeekStart}
+          />
+        )}
       </div>
     </div>
   );
