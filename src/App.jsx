@@ -3,12 +3,11 @@ import {
   format,
   parseISO,
   eachDayOfInterval,
-  startOfMonth,
-  endOfMonth,
-  addMonths,
-  subMonths,
+  startOfWeek,
+  endOfWeek,
+  addWeeks,
+  subWeeks,
   isSameDay,
-  isSameMonth,
   differenceInMinutes,
 } from "date-fns";
 import logo from "./assets/freddy-logo.png";
@@ -43,11 +42,14 @@ function nowLocalInput() {
   return new Date().toISOString().slice(0, 16);
 }
 
-function getMonthHours(shifts, currentMonth) {
-  const monthShifts = shifts.filter(
-    (s) => s.end && isSameMonth(parseISO(s.start), currentMonth)
+function getWeekHours(shifts, weekStart, weekEnd) {
+  const weekShifts = shifts.filter(
+    (s) =>
+      s.end &&
+      parseISO(s.start) >= weekStart &&
+      parseISO(s.start) <= weekEnd
   );
-  const totalMinutes = monthShifts.reduce(
+  const totalMinutes = weekShifts.reduce(
     (sum, s) => sum + (s.durationMinutes || 0),
     0
   );
@@ -127,79 +129,51 @@ function NewShiftForm({ onCreate }) {
   );
 }
 
-function ShiftList({ shifts, onDelete }) {
-  return (
-    <div className="overflow-x-auto mb-6">
-      <table className="w-full text-left border-collapse">
-        <thead>
-          <tr className="bg-red-100 text-red-700">
-            <th className="px-3 py-2">Start</th>
-            <th className="px-3 py-2">Ende</th>
-            <th className="px-3 py-2">Pause</th>
-            <th className="px-3 py-2">Dauer</th>
-            <th className="px-3 py-2">Aktionen</th>
-          </tr>
-        </thead>
-        <tbody>
-          {shifts.map((shift) => (
-            <tr key={shift.id} className="border-b hover:bg-red-50">
-              <td className="px-3 py-2">{format(parseISO(shift.start), "HH:mm")}</td>
-              <td className="px-3 py-2">
-                {shift.end ? format(parseISO(shift.end), "HH:mm") : "--:--"}
-              </td>
-              <td className="px-3 py-2">{shift.pauseMinutes}</td>
-              <td className="px-3 py-2">{minutesToHHMM(shift.durationMinutes)}</td>
-              <td className="px-3 py-2 flex gap-2">
-                <button
-                  onClick={() => onDelete(shift.id)}
-                  className="bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700 transition w-full sm:w-auto"
-                >
-                  Löschen
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
+function Calendar({ shifts, currentWeekStart, setWeekStart }) {
+  const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 }); // Woche startet Montag
+  const days = eachDayOfInterval({ start: currentWeekStart, end: weekEnd });
 
-function Calendar({ shifts, currentMonth, setMonth }) {
-  const month = currentMonth;
-  const start = startOfMonth(month);
-  const end = endOfMonth(month);
-  const days = eachDayOfInterval({ start, end });
-
-  const hasShift = (day) =>
-    shifts.some((s) => isSameDay(parseISO(s.start), day));
+  const shiftsForDay = (day) =>
+    shifts.filter((s) => isSameDay(parseISO(s.start), day));
 
   return (
     <div className="mb-6">
       <div className="flex justify-between items-center mb-2 flex-wrap gap-2">
         <button
-          onClick={() => setMonth(subMonths(month, 1))}
+          onClick={() => setWeekStart(subWeeks(currentWeekStart, 1))}
           className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 transition"
         >
-          &lt; Vorheriger
+          &lt; Vorherige Woche
         </button>
-        <span className="font-semibold text-red-700">{format(month, "MMMM yyyy")}</span>
+        <span className="font-semibold text-red-700">
+          {format(currentWeekStart, "dd.MM.yyyy")} - {format(weekEnd, "dd.MM.yyyy")}
+        </span>
         <button
-          onClick={() => setMonth(addMonths(month, 1))}
+          onClick={() => setWeekStart(addWeeks(currentWeekStart, 1))}
           className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 transition"
         >
-          Nächster &gt;
+          Nächste Woche &gt;
         </button>
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-7 gap-2">
+
+      <div className="flex overflow-x-auto gap-2 py-2">
         {days.map((day) => (
           <div
             key={day}
-            className={`p-2 border rounded text-center cursor-pointer ${
-              hasShift(day) ? "bg-red-200 text-red-800 font-semibold" : "bg-white"
-            } hover:bg-red-100 transition`}
+            className="flex-shrink-0 w-28 p-2 border rounded text-center bg-white shadow-sm"
           >
-            {format(day, "d")}
+            <div className="font-semibold text-red-700">{format(day, "EEE")}</div>
+            <div className="mb-1">{format(day, "d")}</div>
+
+            {shiftsForDay(day).map((shift) => (
+              <div
+                key={shift.id}
+                className="text-sm bg-red-100 text-red-800 rounded px-1 py-0.5 mb-1"
+              >
+                {shift.start ? format(parseISO(shift.start), "HH:mm") : "--:--"} -{" "}
+                {shift.end ? format(parseISO(shift.end), "HH:mm") : "--:--"}
+              </div>
+            ))}
           </div>
         ))}
       </div>
@@ -207,14 +181,14 @@ function Calendar({ shifts, currentMonth, setMonth }) {
   );
 }
 
-function ProgressBar({ hoursWorked, monthlyGoal }) {
-  const progress = Math.min((hoursWorked / monthlyGoal) * 100, 100);
+function ProgressBar({ hoursWorked, weeklyGoal }) {
+  const progress = Math.min((hoursWorked / weeklyGoal) * 100, 100);
 
   return (
     <div className="my-4">
       <div className="flex justify-between mb-1 text-sm font-medium text-red-700">
         <span>Gearbeitete Stunden: {hoursWorked.toFixed(1)}h</span>
-        <span>Monatsziel: {monthlyGoal}h</span>
+        <span>Wochenziel: {weeklyGoal}h</span>
       </div>
       <div className="w-full bg-red-100 rounded-full h-4">
         <div
@@ -229,7 +203,7 @@ function ProgressBar({ hoursWorked, monthlyGoal }) {
 // ------------------- APP -------------------
 export default function App() {
   const [shifts, setShifts] = useState([]);
-  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
 
   useEffect(() => {
     setShifts(loadShifts());
@@ -266,18 +240,15 @@ export default function App() {
         {/* Kalender */}
         <Calendar
           shifts={shifts}
-          currentMonth={currentMonth}
-          setMonth={setCurrentMonth}
+          currentWeekStart={currentWeekStart}
+          setWeekStart={setCurrentWeekStart}
         />
 
         {/* Fortschrittsbalken */}
         <ProgressBar
-          hoursWorked={getMonthHours(shifts, currentMonth)}
-          monthlyGoal={40}
+          hoursWorked={getWeekHours(shifts, currentWeekStart, endOfWeek(currentWeekStart, { weekStartsOn: 1 }))}
+          weeklyGoal={40}
         />
-
-        {/* Shift-Liste */}
-        <ShiftList shifts={shifts} onDelete={handleDelete} />
       </div>
     </div>
   );
