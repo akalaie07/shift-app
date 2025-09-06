@@ -1,5 +1,17 @@
 import React, { useState, useEffect } from "react";
-import { format, parseISO, differenceInMinutes, isBefore } from "date-fns";
+import {
+  format,
+  parseISO,
+  differenceInMinutes,
+  isBefore,
+  eachDayOfInterval,
+  startOfMonth,
+  endOfMonth,
+  addMonths,
+  subMonths,
+  isSameDay,
+  isSameMonth,
+} from "date-fns";
 import logo from "./assets/freddy-logo.png";
 
 const STORAGE_KEY = "shifts_v1";
@@ -30,6 +42,17 @@ function minutesToHHMM(totalMinutes) {
   const h = Math.floor(mins / 60);
   const m = mins % 60;
   return `${sign}${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+function getMonthHours(shifts, currentMonth) {
+  const monthShifts = shifts.filter(
+    (s) => s.end && isSameMonth(parseISO(s.start), currentMonth)
+  );
+  const totalMinutes = monthShifts.reduce(
+    (sum, s) => sum + (s.durationMinutes || 0),
+    0
+  );
+  return totalMinutes / 60;
 }
 
 // ------------------- Komponenten -------------------
@@ -116,11 +139,71 @@ function ShiftList({ shifts, onEndShift }) {
   );
 }
 
+function Calendar({ shifts, currentMonth, setMonth }) {
+  const start = startOfMonth(currentMonth);
+  const end = endOfMonth(currentMonth);
+  const days = eachDayOfInterval({ start, end });
+
+  const hasShift = (day) =>
+    shifts.some((s) => s.actualStart && isSameDay(parseISO(s.actualStart), day));
+
+  return (
+    <div className="mb-6">
+      <div className="flex justify-between items-center mb-2">
+        <button
+          onClick={() => setMonth(subMonths(currentMonth, 1))}
+          className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 transition"
+        >
+          &lt; Vorheriger
+        </button>
+        <span className="font-semibold text-red-700">{format(currentMonth, "MMMM yyyy")}</span>
+        <button
+          onClick={() => setMonth(addMonths(currentMonth, 1))}
+          className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 transition"
+        >
+          Nächster &gt;
+        </button>
+      </div>
+      <div className="grid grid-cols-7 gap-2">
+        {days.map((day) => (
+          <div
+            key={day}
+            className={`p-2 border rounded text-center cursor-pointer ${
+              hasShift(day) ? "bg-red-200 text-red-800 font-semibold" : "bg-white"
+            } hover:bg-red-100 transition`}
+          >
+            {format(day, "d")}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ProgressBar({ hoursWorked, monthlyGoal }) {
+  const progress = Math.min((hoursWorked / monthlyGoal) * 100, 100);
+
+  return (
+    <div className="my-4">
+      <div className="flex justify-between mb-1 text-sm font-medium text-red-700">
+        <span>Gearbeitete Stunden: {hoursWorked.toFixed(1)}h</span>
+        <span>Monatsziel: {monthlyGoal}h</span>
+      </div>
+      <div className="w-full bg-red-100 rounded-full h-4">
+        <div
+          className="bg-red-600 h-4 rounded-full transition-all"
+          style={{ width: `${progress}%` }}
+        ></div>
+      </div>
+    </div>
+  );
+}
+
 // ------------------- APP -------------------
 export default function App() {
   const [shifts, setShifts] = useState([]);
+  const [currentMonth, setCurrentMonth] = useState(new Date());
 
-  // Lädt gespeicherte Schichten
   useEffect(() => {
     setShifts(loadShifts());
   }, []);
@@ -197,6 +280,12 @@ export default function App() {
 
         {/* Formular */}
         <NewShiftForm onCreate={handleCreate} />
+
+        {/* Kalender */}
+        <Calendar shifts={shifts} currentMonth={currentMonth} setMonth={setCurrentMonth} />
+
+        {/* Fortschrittsbalken */}
+        <ProgressBar hoursWorked={getMonthHours(shifts, currentMonth)} monthlyGoal={40} />
 
         {/* Shift-Liste */}
         <ShiftList shifts={shifts} onEndShift={handleEndShift} />
