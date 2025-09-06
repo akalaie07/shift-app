@@ -51,23 +51,32 @@ function Home({ shifts }) {
 
 // ------------------- Kalender (Monat) -------------------
 function Calendar({ shifts, currentMonthStart, setMonthStart }) {
+  // Wir holen uns den ersten und letzten Tag des Monats
+  const monthStart = startOfMonth(currentMonthStart);
   const monthEnd = endOfMonth(currentMonthStart);
-  const days = eachDayOfInterval({ start: currentMonthStart, end: monthEnd });
+
+  // Kalenderanzeige: vom Wochenstart des ersten Monats-Tages bis zum Wochenende des letzten Monats-Tages
+  const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 }); // Montag
+  const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 1 }); // Sonntag
+
+  const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
 
   const shiftsForDay = (day) => shifts.filter(s => isSameDay(parseISO(s.start), day));
 
   return (
     <div id="kalender" className="mb-6">
       <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
-        <button onClick={() => setMonthStart(subWeeks(currentMonthStart, 4))} className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition">← Vorheriger Monat</button>
+        <button onClick={() => setMonthStart(new Date(monthStart.setMonth(monthStart.getMonth() - 1)))} className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition">← Vorheriger Monat</button>
         <span className="text-xl font-semibold text-red-700">{format(currentMonthStart, "MMMM yyyy")}</span>
-        <button onClick={() => setMonthStart(addWeeks(currentMonthStart, 4))} className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition">Nächster Monat →</button>
+        <button onClick={() => setMonthStart(new Date(monthStart.setMonth(monthStart.getMonth() + 1)))} className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition">Nächster Monat →</button>
       </div>
+
       <div className="grid grid-cols-7 gap-2">
         {days.map(day => {
           const dayShifts = shiftsForDay(day);
+          const isCurrentMonth = day.getMonth() === currentMonthStart.getMonth();
           return (
-            <div key={day} className={`p-2 rounded-lg text-center border ${dayShifts.length ? "bg-red-100 border-red-400" : "bg-white"}`}>
+            <div key={day} className={`p-2 rounded-lg text-center border ${isCurrentMonth ? "" : "bg-gray-100 text-gray-400"} ${dayShifts.length ? "bg-red-100 border-red-400" : "bg-white"}`}>
               <div className="font-semibold text-red-700">{format(day, "d")}</div>
               {dayShifts.map(shift => (
                 <div key={shift.id} className="text-sm bg-red-200 text-red-800 rounded px-1 py-0.5 mt-1">
@@ -81,6 +90,7 @@ function Calendar({ shifts, currentMonthStart, setMonthStart }) {
     </div>
   );
 }
+
 
 // ------------------- APP -------------------
 export default function App() {
