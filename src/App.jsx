@@ -130,7 +130,7 @@ function NewShiftForm({ onCreate }) {
 }
 
 function Calendar({ shifts, currentWeekStart, setWeekStart }) {
-  const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 }); // Woche startet Montag
+  const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
   const days = eachDayOfInterval({ start: currentWeekStart, end: weekEnd });
 
   const shiftsForDay = (day) =>
@@ -200,6 +200,41 @@ function ProgressBar({ hoursWorked, weeklyGoal }) {
   );
 }
 
+function ShiftList({ shifts, onDelete }) {
+  if (shifts.length === 0) return <p className="text-center text-gray-500 mb-4">Keine Schichten vorhanden</p>;
+
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      {shifts.map((shift) => (
+        <div key={shift.id} className="p-3 bg-white rounded-lg shadow-sm border flex flex-col">
+          <div className="flex justify-between mb-1">
+            <span className="font-semibold text-red-700">Start:</span>
+            <span>{shift.start ? format(parseISO(shift.start), "dd.MM HH:mm") : "--:--"}</span>
+          </div>
+          <div className="flex justify-between mb-1">
+            <span className="font-semibold text-red-700">Ende:</span>
+            <span>{shift.end ? format(parseISO(shift.end), "dd.MM HH:mm") : "--:--"}</span>
+          </div>
+          <div className="flex justify-between mb-1">
+            <span className="font-semibold text-red-700">Pause:</span>
+            <span>{shift.pauseMinutes} Min</span>
+          </div>
+          <div className="flex justify-between mb-2">
+            <span className="font-semibold text-red-700">Dauer:</span>
+            <span>{minutesToHHMM(shift.durationMinutes)}</span>
+          </div>
+          <button
+            onClick={() => onDelete(shift.id)}
+            className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 transition self-end"
+          >
+            Löschen
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ------------------- APP -------------------
 export default function App() {
   const [shifts, setShifts] = useState([]);
@@ -249,6 +284,9 @@ export default function App() {
           hoursWorked={getWeekHours(shifts, currentWeekStart, endOfWeek(currentWeekStart, { weekStartsOn: 1 }))}
           weeklyGoal={40}
         />
+
+        {/* Shift-Liste */}
+        <ShiftList shifts={shifts} onDelete={handleDelete} />
       </div>
     </div>
   );
