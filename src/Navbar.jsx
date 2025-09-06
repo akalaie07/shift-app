@@ -27,7 +27,7 @@ export default function Navbar() {
         className="md:hidden p-2 focus:outline-none"
         onClick={() => setMenuOpen(true)}
       >
-        <Menu size={28} />
+        <Menu size={28} color="white" />
       </button>
 
       {/* Overlay-Menü */}
@@ -37,7 +37,7 @@ export default function Navbar() {
             className="absolute top-4 right-4 text-white"
             onClick={() => setMenuOpen(false)}
           >
-            <X size={32} />
+            <X size={32} color="white" />
           </button>
 
           <div className="flex flex-col gap-6 text-2xl font-semibold">
