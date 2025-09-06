@@ -2,13 +2,9 @@ import React, { useState, useEffect } from "react";
 import {
   format,
   parseISO,
-  eachDayOfInterval,
-  startOfWeek,
-  endOfWeek,
-  addWeeks,
-  subWeeks,
-  isSameDay,
   differenceInMinutes,
+  isBefore,
+  isAfter,
 } from "date-fns";
 import logo from "./assets/freddy-logo.png";
 
@@ -29,6 +25,10 @@ function loadShifts() {
   return JSON.parse(raw);
 }
 
+function nowLocalInput() {
+  return new Date().toISOString().slice(0, 16);
+}
+
 function minutesToHHMM(totalMinutes) {
   if (totalMinutes == null || isNaN(totalMinutes)) return "00:00";
   const sign = totalMinutes < 0 ? "-" : "";
@@ -38,53 +38,22 @@ function minutesToHHMM(totalMinutes) {
   return `${sign}${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
-function nowLocalInput() {
-  return new Date().toISOString().slice(0, 16);
-}
-
-function getWeekHours(shifts, weekStart, weekEnd) {
-  const weekShifts = shifts.filter(
-    (s) =>
-      s.end &&
-      parseISO(s.start) >= weekStart &&
-      parseISO(s.start) <= weekEnd
-  );
-  const totalMinutes = weekShifts.reduce(
-    (sum, s) => sum + (s.durationMinutes || 0),
-    0
-  );
-  return totalMinutes / 60;
-}
-
 // ------------------- Komponenten -------------------
 function NewShiftForm({ onCreate }) {
-  const [start, setStart] = useState(nowLocalInput());
-  const [end, setEnd] = useState("");
-  const [pause, setPause] = useState(0);
+  const [plannedStart, setPlannedStart] = useState(nowLocalInput());
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const startISO = new Date(start).toISOString();
-    const endISO = end ? new Date(end).toISOString() : null;
-
     const shift = {
       id: generateId(),
-      start: startISO,
-      end: endISO,
-      pauseMinutes: Number(pause) || 0,
-      durationMinutes: endISO
-        ? Math.max(
-            differenceInMinutes(new Date(endISO), new Date(startISO)) -
-              (Number(pause) || 0),
-            0
-          )
-        : null,
+      plannedStart: new Date(plannedStart).toISOString(),
+      actualStart: null,
+      end: null,
+      pauseMinutes: 0,
+      durationMinutes: null,
+      status: "planned",
     };
-
     onCreate(shift);
-    setStart(nowLocalInput());
-    setEnd("");
-    setPause(0);
   };
 
   return (
@@ -93,114 +62,22 @@ function NewShiftForm({ onCreate }) {
       className="flex flex-col gap-4 mb-6 p-4 sm:p-6 bg-white rounded-lg shadow-md"
     >
       <div className="flex flex-col">
-        <label className="mb-1 font-semibold text-red-700">Startzeit</label>
+        <label className="mb-1 font-semibold text-red-700">Geplante Startzeit</label>
         <input
           type="datetime-local"
-          value={start}
-          onChange={(e) => setStart(e.target.value)}
+          value={plannedStart}
+          onChange={(e) => setPlannedStart(e.target.value)}
           className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-400 w-full"
         />
       </div>
-
-      <div className="flex flex-col">
-        <label className="mb-1 font-semibold text-red-700">Endzeit</label>
-        <input
-          type="datetime-local"
-          value={end}
-          onChange={(e) => setEnd(e.target.value)}
-          className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-400 w-full"
-        />
-      </div>
-
-      <div className="flex flex-col">
-        <label className="mb-1 font-semibold text-red-700">Pause (Minuten)</label>
-        <input
-          type="number"
-          value={pause}
-          onChange={(e) => setPause(e.target.value)}
-          className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-400 w-full"
-        />
-      </div>
-
       <button className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition w-full sm:w-auto">
-        Schicht starten
+        Schicht eintragen
       </button>
     </form>
   );
 }
 
-function Calendar({ shifts, currentWeekStart, setWeekStart }) {
-  const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
-  const days = eachDayOfInterval({ start: currentWeekStart, end: weekEnd });
-
-  const shiftsForDay = (day) =>
-    shifts.filter((s) => isSameDay(parseISO(s.start), day));
-
-  return (
-    <div className="mb-6">
-      <div className="flex justify-between items-center mb-2 flex-wrap gap-2">
-        <button
-          onClick={() => setWeekStart(subWeeks(currentWeekStart, 1))}
-          className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 transition"
-        >
-          &lt; Vorherige Woche
-        </button>
-        <span className="font-semibold text-red-700">
-          {format(currentWeekStart, "dd.MM.yyyy")} - {format(weekEnd, "dd.MM.yyyy")}
-        </span>
-        <button
-          onClick={() => setWeekStart(addWeeks(currentWeekStart, 1))}
-          className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 transition"
-        >
-          Nächste Woche &gt;
-        </button>
-      </div>
-
-      <div className="flex overflow-x-auto gap-2 py-2">
-        {days.map((day) => (
-          <div
-            key={day}
-            className="flex-shrink-0 w-28 p-2 border rounded text-center bg-white shadow-sm"
-          >
-            <div className="font-semibold text-red-700">{format(day, "EEE")}</div>
-            <div className="mb-1">{format(day, "d")}</div>
-
-            {shiftsForDay(day).map((shift) => (
-              <div
-                key={shift.id}
-                className="text-sm bg-red-100 text-red-800 rounded px-1 py-0.5 mb-1"
-              >
-                {shift.start ? format(parseISO(shift.start), "HH:mm") : "--:--"} -{" "}
-                {shift.end ? format(parseISO(shift.end), "HH:mm") : "--:--"}
-              </div>
-            ))}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function ProgressBar({ hoursWorked, weeklyGoal }) {
-  const progress = Math.min((hoursWorked / weeklyGoal) * 100, 100);
-
-  return (
-    <div className="my-4">
-      <div className="flex justify-between mb-1 text-sm font-medium text-red-700">
-        <span>Gearbeitete Stunden: {hoursWorked.toFixed(1)}h</span>
-        <span>Wochenziel: {weeklyGoal}h</span>
-      </div>
-      <div className="w-full bg-red-100 rounded-full h-4">
-        <div
-          className="bg-red-600 h-4 rounded-full transition-all"
-          style={{ width: `${progress}%` }}
-        ></div>
-      </div>
-    </div>
-  );
-}
-
-function ShiftList({ shifts, onDelete }) {
+function ShiftList({ shifts, onEndShift }) {
   if (shifts.length === 0) return <p className="text-center text-gray-500 mb-4">Keine Schichten vorhanden</p>;
 
   return (
@@ -209,26 +86,35 @@ function ShiftList({ shifts, onDelete }) {
         <div key={shift.id} className="p-3 bg-white rounded-lg shadow-sm border flex flex-col">
           <div className="flex justify-between mb-1">
             <span className="font-semibold text-red-700">Start:</span>
-            <span>{shift.start ? format(parseISO(shift.start), "dd.MM HH:mm") : "--:--"}</span>
+            <span>{format(parseISO(shift.plannedStart), "dd.MM HH:mm")}</span>
           </div>
-          <div className="flex justify-between mb-1">
-            <span className="font-semibold text-red-700">Ende:</span>
-            <span>{shift.end ? format(parseISO(shift.end), "dd.MM HH:mm") : "--:--"}</span>
-          </div>
-          <div className="flex justify-between mb-1">
-            <span className="font-semibold text-red-700">Pause:</span>
-            <span>{shift.pauseMinutes} Min</span>
-          </div>
-          <div className="flex justify-between mb-2">
-            <span className="font-semibold text-red-700">Dauer:</span>
-            <span>{minutesToHHMM(shift.durationMinutes)}</span>
-          </div>
-          <button
-            onClick={() => onDelete(shift.id)}
-            className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 transition self-end"
-          >
-            Löschen
-          </button>
+          {shift.actualStart && (
+            <div className="flex justify-between mb-1">
+              <span className="font-semibold text-red-700">Tatsächlicher Start:</span>
+              <span>{format(parseISO(shift.actualStart), "HH:mm")}</span>
+            </div>
+          )}
+          {shift.end && (
+            <div className="flex justify-between mb-1">
+              <span className="font-semibold text-red-700">Ende:</span>
+              <span>{format(parseISO(shift.end), "HH:mm")}</span>
+            </div>
+          )}
+          {shift.durationMinutes !== null && (
+            <div className="flex justify-between mb-2">
+              <span className="font-semibold text-red-700">Dauer:</span>
+              <span>{minutesToHHMM(shift.durationMinutes)}</span>
+            </div>
+          )}
+
+          {shift.status === "running" && (
+            <button
+              onClick={() => onEndShift(shift.id)}
+              className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 transition self-end"
+            >
+              Schicht beenden
+            </button>
+          )}
         </div>
       ))}
     </div>
@@ -238,20 +124,67 @@ function ShiftList({ shifts, onDelete }) {
 // ------------------- APP -------------------
 export default function App() {
   const [shifts, setShifts] = useState([]);
-  const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
 
   useEffect(() => {
-    setShifts(loadShifts());
+    const loaded = loadShifts();
+    setShifts(loaded);
   }, []);
 
+  // ------------------- Automatischer Timer -------------------
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = new Date();
+      let updated = false;
+      const newShifts = shifts.map((s) => {
+        if (s.status === "planned" && isBefore(parseISO(s.plannedStart), now)) {
+          updated = true;
+          return { ...s, status: "running", actualStart: now.toISOString() };
+        }
+        return s;
+      });
+      if (updated) {
+        setShifts(newShifts);
+        saveShifts(newShifts);
+      }
+    }, 1000); // jede Sekunde prüfen
+    return () => clearInterval(interval);
+  }, [shifts]);
+
+  // ------------------- Handler -------------------
   const handleCreate = (shift) => {
     const updated = [...shifts, shift];
     setShifts(updated);
     saveShifts(updated);
   };
 
-  const handleDelete = (id) => {
-    const updated = shifts.filter((s) => s.id !== id);
+  const handleEndShift = (id) => {
+    const shift = shifts.find((s) => s.id === id);
+    if (!shift) return;
+
+    // 1. Endzeit abfragen
+    let endInput = new Date().toISOString().slice(0, 16);
+    endInput = prompt("Endzeit der Schicht (HH:MM) oder leer für jetzt:", format(new Date(), "HH:mm")) || format(new Date(), "HH:mm");
+    const endTime = new Date(shift.actualStart);
+    const [endH, endM] = endInput.split(":").map(Number);
+    endTime.setHours(endH);
+    endTime.setMinutes(endM);
+
+    // 2. Pause abfragen
+    let pauseMinutes = prompt("Hattest du Pause? Falls ja, wie viele Minuten?", "0") || "0";
+
+    const durationMinutes = Math.max(differenceInMinutes(endTime, parseISO(shift.actualStart)) - Number(pauseMinutes), 0);
+
+    const updated = shifts.map((s) =>
+      s.id === id
+        ? {
+            ...s,
+            end: endTime.toISOString(),
+            pauseMinutes: Number(pauseMinutes),
+            durationMinutes,
+            status: "finished",
+          }
+        : s
+    );
     setShifts(updated);
     saveShifts(updated);
   };
@@ -272,21 +205,8 @@ export default function App() {
         {/* Formular */}
         <NewShiftForm onCreate={handleCreate} />
 
-        {/* Kalender */}
-        <Calendar
-          shifts={shifts}
-          currentWeekStart={currentWeekStart}
-          setWeekStart={setCurrentWeekStart}
-        />
-
-        {/* Fortschrittsbalken */}
-        <ProgressBar
-          hoursWorked={getWeekHours(shifts, currentWeekStart, endOfWeek(currentWeekStart, { weekStartsOn: 1 }))}
-          weeklyGoal={40}
-        />
-
         {/* Shift-Liste */}
-        <ShiftList shifts={shifts} onDelete={handleDelete} />
+        <ShiftList shifts={shifts} onEndShift={handleEndShift} />
       </div>
     </div>
   );
