@@ -212,11 +212,12 @@ export default function App() {
   useEffect(() => {
     const interval = setInterval(() => {
       setShifts((prevShifts) => {
+        const now = new Date();
         let updated = false;
         const newShifts = prevShifts.map((s) => {
-          if (s.status === "planned" && isBefore(parseISO(s.plannedStart), new Date())) {
+          if (s.status === "planned" && new Date(s.plannedStart) <= now) {
             updated = true;
-            return { ...s, status: "running", actualStart: new Date().toISOString() };
+            return { ...s, status: "running", actualStart: now.toISOString() };
           }
           return s;
         });
@@ -224,8 +225,9 @@ export default function App() {
         return newShifts;
       });
     }, 1000);
+
     return () => clearInterval(interval);
-  }, []);
+  }, []); // ❌ leere Dependency-Liste
 
   // ------------------- Handler -------------------
   const handleCreate = (shift) => {
