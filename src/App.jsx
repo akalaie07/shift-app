@@ -1,5 +1,16 @@
 import React, { useState, useEffect } from "react";
-import { format, parseISO, differenceInMinutes } from "date-fns";
+import {
+  format,
+  parseISO,
+  eachDayOfInterval,
+  startOfWeek,
+  endOfWeek,
+  addWeeks,
+  subWeeks,
+  isSameDay,
+  differenceInMinutes,
+  isBefore,
+} from "date-fns";
 import logo from "./assets/freddy-logo.png";
 
 const STORAGE_KEY = "shifts_v1";
@@ -15,11 +26,8 @@ function saveShifts(shifts) {
 
 function loadShifts() {
   const raw = localStorage.getItem(STORAGE_KEY);
-  return raw ? JSON.parse(raw) : [];
-}
-
-function nowLocalInput() {
-  return new Date().toISOString().slice(0, 16);
+  if (!raw) return [];
+  return JSON.parse(raw);
 }
 
 function minutesToHHMM(totalMinutes) {
@@ -29,6 +37,24 @@ function minutesToHHMM(totalMinutes) {
   const h = Math.floor(mins / 60);
   const m = mins % 60;
   return `${sign}${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+function nowLocalInput() {
+  return new Date().toISOString().slice(0, 16);
+}
+
+function getWeekHours(shifts, weekStart, weekEnd) {
+  const weekShifts = shifts.filter(
+    (s) =>
+      s.end &&
+      parseISO(s.actualStart) >= weekStart &&
+      parseISO(s.actualStart) <= weekEnd
+  );
+  const totalMinutes = weekShifts.reduce(
+    (sum, s) => sum + (s.durationMinutes || 0),
+    0
+  );
+  return totalMinutes / 60;
 }
 
 // ------------------- Komponenten -------------------
@@ -68,9 +94,79 @@ function NewShiftForm({ onCreate }) {
   );
 }
 
+function Calendar({ shifts, currentWeekStart, setWeekStart }) {
+  const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
+  const days = eachDayOfInterval({ start: currentWeekStart, end: weekEnd });
+
+  const shiftsForDay = (day) =>
+    shifts.filter((s) => s.actualStart && isSameDay(parseISO(s.actualStart), day));
+
+  return (
+    <div className="mb-6">
+      <div className="flex justify-between items-center mb-2 flex-wrap gap-2">
+        <button
+          onClick={() => setWeekStart(subWeeks(currentWeekStart, 1))}
+          className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 transition"
+        >
+          &lt; Vorherige Woche
+        </button>
+        <span className="font-semibold text-red-700">
+          {format(currentWeekStart, "dd.MM.yyyy")} - {format(weekEnd, "dd.MM.yyyy")}
+        </span>
+        <button
+          onClick={() => setWeekStart(addWeeks(currentWeekStart, 1))}
+          className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 transition"
+        >
+          Nächste Woche &gt;
+        </button>
+      </div>
+
+      <div className="flex overflow-x-auto gap-2 py-2">
+        {days.map((day) => (
+          <div
+            key={day}
+            className="flex-shrink-0 w-28 p-2 border rounded text-center bg-white shadow-sm"
+          >
+            <div className="font-semibold text-red-700">{format(day, "EEE")}</div>
+            <div className="mb-1">{format(day, "d")}</div>
+
+            {shiftsForDay(day).map((shift) => (
+              <div
+                key={shift.id}
+                className="text-sm bg-red-100 text-red-800 rounded px-1 py-0.5 mb-1"
+              >
+                {shift.actualStart ? format(parseISO(shift.actualStart), "HH:mm") : "--:--"} -{" "}
+                {shift.end ? format(parseISO(shift.end), "HH:mm") : "--:--"}
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ProgressBar({ hoursWorked, weeklyGoal }) {
+  const progress = Math.min((hoursWorked / weeklyGoal) * 100, 100);
+
+  return (
+    <div className="my-4">
+      <div className="flex justify-between mb-1 text-sm font-medium text-red-700">
+        <span>Gearbeitete Stunden: {hoursWorked.toFixed(1)}h</span>
+        <span>Wochenziel: {weeklyGoal}h</span>
+      </div>
+      <div className="w-full bg-red-100 rounded-full h-4">
+        <div
+          className="bg-red-600 h-4 rounded-full transition-all"
+          style={{ width: `${progress}%` }}
+        ></div>
+      </div>
+    </div>
+  );
+}
+
 function ShiftList({ shifts, onEndShift }) {
-  if (!shifts || shifts.length === 0)
-    return <p className="text-center text-gray-500 mb-4">Keine Schichten vorhanden</p>;
+  if (shifts.length === 0) return <p className="text-center text-gray-500 mb-4">Keine Schichten vorhanden</p>;
 
   return (
     <div className="grid gap-3 sm:grid-cols-2">
@@ -78,7 +174,7 @@ function ShiftList({ shifts, onEndShift }) {
         <div key={shift.id} className="p-3 bg-white rounded-lg shadow-sm border flex flex-col">
           <div className="flex justify-between mb-1">
             <span className="font-semibold text-red-700">Start:</span>
-            <span>{format(parseISO(shift.plannedStart), "dd.MM HH:mm")}</span>
+            <span>{shift.plannedStart ? format(parseISO(shift.plannedStart), "dd.MM HH:mm") : "--:--"}</span>
           </div>
           {shift.actualStart && (
             <div className="flex justify-between mb-1">
@@ -114,22 +210,21 @@ function ShiftList({ shifts, onEndShift }) {
 
 // ------------------- APP -------------------
 export default function App() {
-  const [shifts, setShifts] = useState(null);
+  const [shifts, setShifts] = useState([]);
+  const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
 
-  // Initial Load
   useEffect(() => {
     setShifts(loadShifts());
   }, []);
 
-  // Timer für geplante Shifts
+  // Timer: prüft jede Sekunde geplante Shifts
   useEffect(() => {
-    if (!shifts) return;
     const interval = setInterval(() => {
       setShifts((prevShifts) => {
         const now = new Date();
         let updated = false;
         const newShifts = prevShifts.map((s) => {
-          if (s.status === "planned" && new Date(s.plannedStart) <= now) {
+          if (s.status === "planned" && isBefore(parseISO(s.plannedStart), now)) {
             updated = true;
             return { ...s, status: "running", actualStart: now.toISOString() };
           }
@@ -141,10 +236,10 @@ export default function App() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [shifts]);
+  }, []);
 
   const handleCreate = (shift) => {
-    const updated = [...(shifts || []), shift];
+    const updated = [...shifts, shift];
     setShifts(updated);
     saveShifts(updated);
   };
@@ -153,7 +248,6 @@ export default function App() {
     const shift = shifts.find((s) => s.id === id);
     if (!shift) return;
 
-    // Endzeit abfragen
     const endInput = prompt(
       "Endzeit der Schicht (HH:MM) oder leer für jetzt:",
       format(new Date(), "HH:mm")
@@ -164,9 +258,7 @@ export default function App() {
     endTime.setHours(endH);
     endTime.setMinutes(endM);
 
-    // Pause abfragen
     const pauseMinutes = Number(prompt("Hattest du Pause? Falls ja, wie viele Minuten?", "0") || "0");
-
     const durationMinutes = Math.max(differenceInMinutes(endTime, parseISO(shift.actualStart)) - pauseMinutes, 0);
 
     const updated = shifts.map((s) =>
@@ -174,15 +266,15 @@ export default function App() {
         ? { ...s, end: endTime.toISOString(), pauseMinutes, durationMinutes, status: "finished" }
         : s
     );
+
     setShifts(updated);
     saveShifts(updated);
   };
 
-  if (!shifts) return <div className="min-h-screen flex items-center justify-center">Lade Daten...</div>;
-
   return (
     <div className="min-h-screen p-4 sm:p-6 bg-red-50 text-gray-800">
       <div className="max-w-full sm:max-w-4xl mx-auto bg-white shadow-lg rounded-lg p-4 sm:p-6">
+
         <div className="flex justify-center mb-4">
           <img src={logo} alt="Freddy Fresh Logo" className="h-20 sm:h-24" />
         </div>
@@ -192,6 +284,18 @@ export default function App() {
         </h1>
 
         <NewShiftForm onCreate={handleCreate} />
+
+        <Calendar
+          shifts={shifts}
+          currentWeekStart={currentWeekStart}
+          setWeekStart={setCurrentWeekStart}
+        />
+
+        <ProgressBar
+          hoursWorked={getWeekHours(shifts, currentWeekStart, endOfWeek(currentWeekStart, { weekStartsOn: 1 }))}
+          weeklyGoal={40}
+        />
+
         <ShiftList shifts={shifts} onEndShift={handleEndShift} />
       </div>
     </div>
