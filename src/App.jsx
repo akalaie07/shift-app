@@ -15,15 +15,65 @@ function loadShifts() {
 }
 
 // ------------------- Home -------------------
-function Home({ shifts }) {
+function Home({ shifts, onUpdate }) {
   const now = new Date();
   const futureShifts = shifts
-    .filter(s => s.start && new Date(s.start) > now)
+    .filter(s => s.start && new Date(s.start) > now || (s.running && !s.end))
     .sort((a, b) => new Date(a.start) - new Date(b.start));
   const nextShift = futureShifts[0];
 
+  const [liveNow, setLiveNow] = useState(new Date());
+
+  // Timer für Live-Dauer
+  useEffect(() => {
+    const timer = setInterval(() => setLiveNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Automatisches Starten der Schicht
+  useEffect(() => {
+    if (!nextShift) return;
+    if (!nextShift.running && !nextShift.end && new Date(nextShift.start) <= liveNow) {
+      const updated = shifts.map(s =>
+        s.id === nextShift.id ? { ...s, running: true, actualStart: new Date().toISOString() } : s
+      );
+      onUpdate(updated);
+    }
+  }, [liveNow, nextShift]);
+
+  const handleStart = (shift) => {
+    const updated = shifts.map(s =>
+      s.id === shift.id ? { ...s, running: true, actualStart: new Date().toISOString() } : s
+    );
+    onUpdate(updated);
+  };
+
+  const handleEnd = (shift) => {
+    let endTime = new Date().toISOString();
+    let pauseMinutes = 0;
+
+    if (!window.confirm(`Endzeit jetzt übernehmen? (${format(new Date(endTime), "HH:mm")})`)) {
+      const manual = prompt("Bitte Endzeit eingeben (YYYY-MM-DD HH:MM):", format(new Date(), "yyyy-MM-dd HH:mm"));
+      if (manual) endTime = new Date(manual.replace(" ", "T")).toISOString();
+    }
+
+    if (window.confirm("Hattest du Pause?")) {
+      const pauseInput = prompt("Wie viele Minuten Pause?");
+      if (pauseInput) pauseMinutes = parseInt(pauseInput);
+    }
+
+    const updated = shifts.map(s => {
+      if (s.id === shift.id) {
+        const durationMinutes = Math.max(differenceInMinutes(new Date(endTime), parseISO(s.actualStart || s.start)) - pauseMinutes, 0);
+        return { ...s, end: endTime, pauseMinutes, durationMinutes, running: false };
+      }
+      return s;
+    });
+    onUpdate(updated);
+  };
+
   const getTimeUntil = (startDate) => {
-    const diffMs = new Date(startDate) - now;
+    const diffMs = new Date(startDate) - liveNow;
     const diffMin = Math.max(0, Math.floor(diffMs / (1000 * 60)));
 
     if (diffMin < 60) return `${diffMin} Min`;
@@ -37,7 +87,36 @@ function Home({ shifts }) {
         <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md text-center transition-transform hover:scale-105">
           <h2 className="text-3xl font-bold text-red-700 mb-4">Nächste Schicht</h2>
           <p className="text-gray-800 text-2xl font-semibold">{format(parseISO(nextShift.start), "dd.MM.yyyy HH:mm")}</p>
-          <p className="mt-3 text-gray-600 font-medium text-xl">Beginnt in: {getTimeUntil(nextShift.start)}</p>
+          {!nextShift.running && !nextShift.end && (
+            <p className="mt-3 text-gray-600 font-medium text-xl">Beginnt in: {getTimeUntil(nextShift.start)}</p>
+          )}
+
+          {/* Start / End Button */}
+          {(!nextShift.end) && (
+            <div className="mt-4">
+              {!nextShift.running ? (
+                <button onClick={() => handleStart(nextShift)} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Schicht starten</button>
+              ) : (
+                <>
+                  <div className="text-gray-700 mt-2 mb-2">
+                    Live-Dauer: {(() => {
+                      const minutes = differenceInMinutes(liveNow, parseISO(nextShift.actualStart));
+                      return `${Math.floor(minutes / 60)}h ${minutes % 60}min`;
+                    })()}
+                  </div>
+                  <button onClick={() => handleEnd(nextShift)} className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">Schicht beenden</button>
+                </>
+              )}
+            </div>
+          )}
+
+          {nextShift.pauseMinutes > 0 && (
+            <div className="mt-2 text-gray-700">Pause: {nextShift.pauseMinutes} Min</div>
+          )}
+
+          {nextShift.durationMinutes && (
+            <div className="mt-2 text-gray-700">Dauer: {Math.floor(nextShift.durationMinutes/60)}h {nextShift.durationMinutes%60}min</div>
+          )}
         </div>
       ) : (
         <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md text-center">
@@ -47,6 +126,7 @@ function Home({ shifts }) {
     </div>
   );
 }
+
 
 // ------------------- Kalender (Monat) -------------------
 function Calendar({ shifts, currentMonthStart, setMonthStart }) {
