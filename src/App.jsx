@@ -4,7 +4,7 @@ import logo from "./assets/freddy-logo.png";
 
 const STORAGE_KEY = "shifts_v1";
 
-// Hilfsfunktionen
+// ------------------- Helper -------------------
 function generateId() {
   return `${Date.now()}-${Math.floor(Math.random() * 10000)}`;
 }
@@ -31,7 +31,7 @@ function minutesToHHMM(totalMinutes) {
   return `${sign}${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
-// Neue Schicht eintragen
+// ------------------- Komponenten -------------------
 function NewShiftForm({ onCreate }) {
   const [plannedStart, setPlannedStart] = useState(nowLocalInput());
 
@@ -68,9 +68,9 @@ function NewShiftForm({ onCreate }) {
   );
 }
 
-// Schichtliste
 function ShiftList({ shifts, onEndShift }) {
-  if (shifts.length === 0) return <p className="text-center text-gray-500 mb-4">Keine Schichten vorhanden</p>;
+  if (!shifts || shifts.length === 0)
+    return <p className="text-center text-gray-500 mb-4">Keine Schichten vorhanden</p>;
 
   return (
     <div className="grid gap-3 sm:grid-cols-2">
@@ -112,12 +112,18 @@ function ShiftList({ shifts, onEndShift }) {
   );
 }
 
-// App-Komponente
+// ------------------- APP -------------------
 export default function App() {
-  const [shifts, setShifts] = useState(loadShifts());
+  const [shifts, setShifts] = useState(null);
 
-  // Timer: prüft jede Sekunde geplante Shifts
+  // Initial Load
   useEffect(() => {
+    setShifts(loadShifts());
+  }, []);
+
+  // Timer für geplante Shifts
+  useEffect(() => {
+    if (!shifts) return;
     const interval = setInterval(() => {
       setShifts((prevShifts) => {
         const now = new Date();
@@ -135,20 +141,19 @@ export default function App() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [shifts]);
 
-  // Neue Schicht hinzufügen
   const handleCreate = (shift) => {
-    const updated = [...shifts, shift];
+    const updated = [...(shifts || []), shift];
     setShifts(updated);
     saveShifts(updated);
   };
 
-  // Schicht beenden
   const handleEndShift = (id) => {
     const shift = shifts.find((s) => s.id === id);
     if (!shift) return;
 
+    // Endzeit abfragen
     const endInput = prompt(
       "Endzeit der Schicht (HH:MM) oder leer für jetzt:",
       format(new Date(), "HH:mm")
@@ -159,7 +164,9 @@ export default function App() {
     endTime.setHours(endH);
     endTime.setMinutes(endM);
 
+    // Pause abfragen
     const pauseMinutes = Number(prompt("Hattest du Pause? Falls ja, wie viele Minuten?", "0") || "0");
+
     const durationMinutes = Math.max(differenceInMinutes(endTime, parseISO(shift.actualStart)) - pauseMinutes, 0);
 
     const updated = shifts.map((s) =>
@@ -167,15 +174,15 @@ export default function App() {
         ? { ...s, end: endTime.toISOString(), pauseMinutes, durationMinutes, status: "finished" }
         : s
     );
-
     setShifts(updated);
     saveShifts(updated);
   };
 
+  if (!shifts) return <div className="min-h-screen flex items-center justify-center">Lade Daten...</div>;
+
   return (
     <div className="min-h-screen p-4 sm:p-6 bg-red-50 text-gray-800">
       <div className="max-w-full sm:max-w-4xl mx-auto bg-white shadow-lg rounded-lg p-4 sm:p-6">
-
         <div className="flex justify-center mb-4">
           <img src={logo} alt="Freddy Fresh Logo" className="h-20 sm:h-24" />
         </div>
@@ -186,7 +193,6 @@ export default function App() {
 
         <NewShiftForm onCreate={handleCreate} />
         <ShiftList shifts={shifts} onEndShift={handleEndShift} />
-
       </div>
     </div>
   );
