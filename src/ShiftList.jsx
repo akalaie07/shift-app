@@ -1,9 +1,11 @@
+// ShiftList.jsx
 import React, { useState } from "react";
-import { startOfWeek, endOfWeek, addWeeks, subWeeks, eachDayOfInterval, format, parseISO, isSameDay, differenceInMinutes } from "date-fns";
+import { startOfWeek, endOfWeek, addWeeks, subWeeks, eachDayOfInterval, format, parseISO, isSameDay } from "date-fns";
 
 export default function ShiftList({ shifts, onUpdate, onDelete }) {
   const [newShiftTime, setNewShiftTime] = useState("");
   const [currentWeekStart, setWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const [menuOpen, setMenuOpen] = useState(null);
 
   const handleCreate = () => {
     if (!newShiftTime) return;
@@ -16,40 +18,18 @@ export default function ShiftList({ shifts, onUpdate, onDelete }) {
     setNewShiftTime("");
   };
 
+  const handleEdit = (shift) => {
+    const newTime = prompt("Neue Startzeit eingeben (YYYY-MM-DD HH:MM):", format(parseISO(shift.start), "yyyy-MM-dd HH:mm"));
+    if (newTime) {
+      const updated = shifts.map(s => s.id === shift.id ? { ...s, start: new Date(newTime.replace(" ", "T")).toISOString() } : s);
+      onUpdate(updated);
+    }
+    setMenuOpen(null);
+  };
+
   const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
   const days = eachDayOfInterval({ start: currentWeekStart, end: weekEnd });
   const shiftsForDay = (day) => shifts.filter(s => isSameDay(parseISO(s.start), day));
-  const now = new Date();
-
-  const handleStart = (shift) => {
-    const updated = shifts.map(s => s.id === shift.id ? { ...s, actualStart: new Date().toISOString(), running: true } : s);
-    onUpdate(updated);
-  };
-
-  const handleEnd = (shift) => {
-    let endTime = new Date().toISOString();
-    let pauseMinutes = 0;
-
-    if (!window.confirm(`Endzeit jetzt übernehmen? (${format(new Date(endTime), "HH:mm")})`)) {
-      const manual = prompt("Bitte Endzeit eingeben (YYYY-MM-DD HH:MM):", format(new Date(), "yyyy-MM-dd HH:mm"));
-      if (manual) endTime = new Date(manual.replace(" ", "T")).toISOString();
-    }
-
-    if (window.confirm("Hattest du Pause?")) {
-      const pauseInput = prompt("Wie viele Minuten Pause?");
-      if (pauseInput) pauseMinutes = parseInt(pauseInput);
-    }
-
-    const updated = shifts.map(s => {
-      if (s.id === shift.id) {
-        const durationMinutes = Math.max(differenceInMinutes(new Date(endTime), parseISO(s.actualStart || s.start)) - pauseMinutes, 0);
-        return { ...s, end: endTime, pauseMinutes, durationMinutes, running: false };
-      }
-      return s;
-    });
-
-    onUpdate(updated);
-  };
 
   return (
     <div id="schichten">
@@ -71,31 +51,30 @@ export default function ShiftList({ shifts, onUpdate, onDelete }) {
       {/* Woche */}
       <div className="flex overflow-x-auto gap-2 py-2">
         {days.map(day => (
-          <div key={day} className="flex-shrink-0 w-28 p-2 border rounded text-center bg-white shadow-sm">
+          <div key={day} className="flex-shrink-0 w-28 p-2 border rounded text-center bg-white shadow-sm relative">
             <div className="font-semibold text-red-700">{format(day, "EEE")}</div>
             <div className="mb-1">{format(day, "d")}</div>
 
-            {shiftsForDay(day).map(shift => {
-              const isRunning = shift.running;
-              const startTime = shift.actualStart || shift.start;
-              let liveDuration = "";
-              if (isRunning && startTime) {
-                const minutes = differenceInMinutes(now, parseISO(startTime));
-                liveDuration = `${Math.floor(minutes / 60)}h ${minutes % 60}min`;
-              }
+            {shiftsForDay(day).map(shift => (
+              <div key={shift.id} className="mb-1 border rounded p-1 bg-red-100 text-red-800 relative">
+                <div>{format(parseISO(shift.start), "HH:mm")}</div>
 
-              return (
-                <div key={shift.id} className="mb-1 border rounded p-1 bg-red-100 text-red-800">
-                  <div>{format(parseISO(shift.start), "HH:mm")}</div>
-                  {shift.end && <div>{format(parseISO(shift.end), "HH:mm")}</div>}
-                  {isRunning && <div>Live: {liveDuration}</div>}
-                  {shift.durationMinutes && <div>Dauer: {Math.floor(shift.durationMinutes / 60)}h {shift.durationMinutes % 60}min</div>}
-                  {!isRunning && !shift.end && <button onClick={() => handleStart(shift)} className="bg-green-600 text-white px-2 py-0.5 rounded mt-1">Start</button>}
-                  {isRunning && <button onClick={() => handleEnd(shift)} className="bg-red-600 text-white px-2 py-0.5 rounded mt-1">Beenden</button>}
-                  {!isRunning && shift.end && <button onClick={() => onDelete(shift.id)} className="bg-gray-600 text-white px-2 py-0.5 rounded mt-1">Löschen</button>}
-                </div>
-              );
-            })}
+                {/* Drei Punkte Menü */}
+                <button
+                  onClick={() => setMenuOpen(menuOpen === shift.id ? null : shift.id)}
+                  className="absolute top-1 right-1 text-gray-700"
+                >
+                  ⋮
+                </button>
+
+                {menuOpen === shift.id && (
+                  <div className="absolute top-6 right-1 bg-white border rounded shadow-md z-10">
+                    <button onClick={() => handleEdit(shift)} className="block w-full text-left px-3 py-1 hover:bg-gray-100">Bearbeiten</button>
+                    <button onClick={() => { onDelete(shift.id); setMenuOpen(null); }} className="block w-full text-left px-3 py-1 hover:bg-gray-100 text-red-600">Löschen</button>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         ))}
       </div>

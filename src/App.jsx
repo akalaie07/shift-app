@@ -129,12 +129,35 @@ function Calendar({ shifts, currentMonthStart, setMonthStart }) {
 }
 
 // ------------------- App -------------------
+// App.jsx
+// ... (Rest bleibt gleich oben)
+
 export default function App() {
   const [shifts, setShifts] = useState([]);
   const [activePage, setActivePage] = useState("home");
   const [currentMonthStart, setMonthStart] = useState(new Date());
 
   useEffect(() => setShifts(loadShifts()), []);
+
+  // 🔄 automatischer Start-Checker
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = new Date();
+      let changed = false;
+      const updated = shifts.map(s => {
+        if (!s.running && new Date(s.start) <= now && !s.end) {
+          changed = true;
+          return { ...s, actualStart: new Date().toISOString(), running: true };
+        }
+        return s;
+      });
+      if (changed) {
+        setShifts(updated);
+        saveShifts(updated);
+      }
+    }, 60000); // jede Minute prüfen
+    return () => clearInterval(interval);
+  }, [shifts]);
 
   const handleCreate = (shift) => { const updated = [...shifts, shift]; setShifts(updated); saveShifts(updated); };
   const handleDelete = (id) => { const updated = shifts.filter(s => s.id !== id); setShifts(updated); saveShifts(updated); };
@@ -157,3 +180,4 @@ export default function App() {
     </div>
   );
 }
+
