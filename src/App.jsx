@@ -4,7 +4,7 @@ import logo from "./assets/freddy-logo.png";
 
 const STORAGE_KEY = "shifts_v1";
 
-// --- Helferfunktionen ---
+// ------------------- Helper -------------------
 function generateId() {
   return `${Date.now()}-${Math.floor(Math.random() * 10000)}`;
 }
@@ -15,13 +15,7 @@ function saveShifts(shifts) {
 
 function loadShifts() {
   const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) return [];
-  try {
-    return JSON.parse(raw);
-  } catch (e) {
-    console.error("Fehler beim Laden der Schichten:", e);
-    return [];
-  }
+  return raw ? JSON.parse(raw) : [];
 }
 
 function nowLocalInput() {
@@ -37,7 +31,7 @@ function minutesToHHMM(totalMinutes) {
   return `${sign}${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
-// --- Komponenten ---
+// ------------------- Komponenten -------------------
 function NewShiftForm({ onCreate }) {
   const [plannedStart, setPlannedStart] = useState(nowLocalInput());
 
@@ -74,15 +68,16 @@ function NewShiftForm({ onCreate }) {
   );
 }
 
-function ShiftList({ shifts, onEndShift }) {
-  if (!shifts || shifts.length === 0) return <p className="text-center text-gray-500 mb-4">Keine Schichten vorhanden</p>;
+function ShiftList({ shifts, onEditShift, onDeleteShift }) {
+  if (!shifts || shifts.length === 0)
+    return <p className="text-center text-gray-500 mb-4">Keine Schichten vorhanden</p>;
 
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       {shifts.map((shift) => {
-        let plannedStart = shift.plannedStart ? format(parseISO(shift.plannedStart), "dd.MM HH:mm") : "--:--";
-        let actualStart = shift.actualStart ? format(parseISO(shift.actualStart), "HH:mm") : null;
-        let end = shift.end ? format(parseISO(shift.end), "HH:mm") : null;
+        const plannedStart = shift.plannedStart ? format(parseISO(shift.plannedStart), "dd.MM HH:mm") : "--:--";
+        const actualStart = shift.actualStart ? format(parseISO(shift.actualStart), "HH:mm") : null;
+        const end = shift.end ? format(parseISO(shift.end), "HH:mm") : null;
 
         return (
           <div key={shift.id} className="p-3 bg-white rounded-lg shadow-sm border flex flex-col">
@@ -108,14 +103,22 @@ function ShiftList({ shifts, onEndShift }) {
                 <span>{minutesToHHMM(shift.durationMinutes)}</span>
               </div>
             )}
-            {shift.status === "running" && (
+
+            <div className="flex gap-2 mt-2">
               <button
-                onClick={() => onEndShift(shift.id)}
-                className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 transition self-end"
+                onClick={() => onEditShift(shift.id)}
+                className="bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600 transition flex-1"
               >
-                Schicht beenden
+                Bearbeiten
               </button>
-            )}
+
+              <button
+                onClick={() => onDeleteShift(shift.id)}
+                className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 transition flex-1"
+              >
+                Löschen
+              </button>
+            </div>
           </div>
         );
       })}
@@ -123,54 +126,76 @@ function ShiftList({ shifts, onEndShift }) {
   );
 }
 
-// --- APP ---
+// ------------------- APP -------------------
 export default function App() {
   const [shifts, setShifts] = useState(loadShifts());
 
-  // Timer: prüft jede Sekunde geplante Shifts
+  // ------------------- Automatischer Timer -------------------
   useEffect(() => {
     const interval = setInterval(() => {
-      setShifts((prevShifts) => {
-        const now = new Date();
-        let updated = false;
-        const newShifts = prevShifts.map((s) => {
-          if (s.status === "planned" && s.plannedStart && isBefore(parseISO(s.plannedStart), now)) {
-            updated = true;
-            return { ...s, status: "running", actualStart: now.toISOString() };
-          }
-          return s;
-        });
-        if (updated) saveShifts(newShifts);
-        return newShifts;
+      const now = new Date();
+      let updated = false;
+      const newShifts = shifts.map((s) => {
+        if (s.status === "planned" && isBefore(parseISO(s.plannedStart), now)) {
+          updated = true;
+          return { ...s, status: "running", actualStart: now.toISOString() };
+        }
+        return s;
       });
+      if (updated) {
+        setShifts(newShifts);
+        saveShifts(newShifts);
+      }
     }, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [shifts]);
 
+  // ------------------- Handler -------------------
   const handleCreate = (shift) => {
     const updated = [...shifts, shift];
     setShifts(updated);
     saveShifts(updated);
   };
 
-  const handleEndShift = (id) => {
+  const handleDeleteShift = (id) => {
+    const updated = shifts.filter((s) => s.id !== id);
+    setShifts(updated);
+    saveShifts(updated);
+  };
+
+  const handleEditShift = (id) => {
     const shift = shifts.find((s) => s.id === id);
     if (!shift) return;
 
-    let endInput = prompt("Endzeit der Schicht (HH:MM) oder leer für jetzt:", format(new Date(), "HH:mm")) || format(new Date(), "HH:mm");
-    const endTime = new Date(shift.actualStart || new Date());
-    const [endH, endM] = endInput.split(":").map(Number);
-    endTime.setHours(endH);
-    endTime.setMinutes(endM);
+    const newPlannedStart = prompt(
+      "Neue Startzeit (YYYY-MM-DDTHH:MM)",
+      shift.plannedStart?.slice(0, 16)
+    ) || shift.plannedStart;
 
-    let pauseMinutes = Number(prompt("Hattest du Pause? Falls ja, wie viele Minuten?", "0") || "0");
-    const durationMinutes = Math.max(differenceInMinutes(endTime, parseISO(shift.actualStart || new Date())) - pauseMinutes, 0);
+    const newEnd = prompt(
+      "Neue Endzeit (YYYY-MM-DDTHH:MM, optional)",
+      shift.end?.slice(0, 16) || ""
+    ) || shift.end;
+
+    const newPause = Number(prompt("Pause in Minuten", shift.pauseMinutes || 0) || shift.pauseMinutes);
+
+    const newDuration =
+      newEnd && newPlannedStart
+        ? Math.max(differenceInMinutes(new Date(newEnd), new Date(newPlannedStart)) - newPause, 0)
+        : shift.durationMinutes;
 
     const updated = shifts.map((s) =>
       s.id === id
-        ? { ...s, end: endTime.toISOString(), pauseMinutes, durationMinutes, status: "finished" }
+        ? {
+            ...s,
+            plannedStart: newPlannedStart,
+            end: newEnd,
+            pauseMinutes: newPause,
+            durationMinutes: newDuration,
+          }
         : s
     );
+
     setShifts(updated);
     saveShifts(updated);
   };
@@ -179,6 +204,7 @@ export default function App() {
     <div className="min-h-screen p-4 sm:p-6 bg-red-50 text-gray-800">
       <div className="max-w-full sm:max-w-4xl mx-auto bg-white shadow-lg rounded-lg p-4 sm:p-6">
 
+        {/* Logo */}
         <div className="flex justify-center mb-4">
           <img src={logo} alt="Freddy Fresh Logo" className="h-20 sm:h-24" />
         </div>
@@ -187,9 +213,15 @@ export default function App() {
           Freddy Fresh Schichtplaner
         </h1>
 
+        {/* Formular */}
         <NewShiftForm onCreate={handleCreate} />
-        <ShiftList shifts={shifts} onEndShift={handleEndShift} />
 
+        {/* Shift-Liste */}
+        <ShiftList
+          shifts={shifts}
+          onEditShift={handleEditShift}
+          onDeleteShift={handleDeleteShift}
+        />
       </div>
     </div>
   );
