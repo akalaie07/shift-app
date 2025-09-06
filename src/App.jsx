@@ -1,11 +1,5 @@
 import React, { useState, useEffect } from "react";
-import {
-  format,
-  parseISO,
-  differenceInMinutes,
-  isBefore,
-  isAfter,
-} from "date-fns";
+import { format, parseISO, differenceInMinutes, isBefore } from "date-fns";
 import logo from "./assets/freddy-logo.png";
 
 const STORAGE_KEY = "shifts_v1";
@@ -78,7 +72,8 @@ function NewShiftForm({ onCreate }) {
 }
 
 function ShiftList({ shifts, onEndShift }) {
-  if (shifts.length === 0) return <p className="text-center text-gray-500 mb-4">Keine Schichten vorhanden</p>;
+  if (shifts.length === 0)
+    return <p className="text-center text-gray-500 mb-4">Keine Schichten vorhanden</p>;
 
   return (
     <div className="grid gap-3 sm:grid-cols-2">
@@ -125,30 +120,29 @@ function ShiftList({ shifts, onEndShift }) {
 export default function App() {
   const [shifts, setShifts] = useState([]);
 
+  // Lädt gespeicherte Schichten
   useEffect(() => {
-    const loaded = loadShifts();
-    setShifts(loaded);
+    setShifts(loadShifts());
   }, []);
 
   // ------------------- Automatischer Timer -------------------
   useEffect(() => {
     const interval = setInterval(() => {
-      const now = new Date();
-      let updated = false;
-      const newShifts = shifts.map((s) => {
-        if (s.status === "planned" && isBefore(parseISO(s.plannedStart), now)) {
-          updated = true;
-          return { ...s, status: "running", actualStart: now.toISOString() };
-        }
-        return s;
+      setShifts((prevShifts) => {
+        let updated = false;
+        const newShifts = prevShifts.map((s) => {
+          if (s.status === "planned" && isBefore(parseISO(s.plannedStart), new Date())) {
+            updated = true;
+            return { ...s, status: "running", actualStart: new Date().toISOString() };
+          }
+          return s;
+        });
+        if (updated) saveShifts(newShifts);
+        return newShifts;
       });
-      if (updated) {
-        setShifts(newShifts);
-        saveShifts(newShifts);
-      }
-    }, 1000); // jede Sekunde prüfen
+    }, 1000);
     return () => clearInterval(interval);
-  }, [shifts]);
+  }, []);
 
   // ------------------- Handler -------------------
   const handleCreate = (shift) => {
@@ -161,15 +155,14 @@ export default function App() {
     const shift = shifts.find((s) => s.id === id);
     if (!shift) return;
 
-    // 1. Endzeit abfragen
-    let endInput = new Date().toISOString().slice(0, 16);
-    endInput = prompt("Endzeit der Schicht (HH:MM) oder leer für jetzt:", format(new Date(), "HH:mm")) || format(new Date(), "HH:mm");
+    // Endzeit abfragen
+    let endInput = prompt("Endzeit der Schicht (HH:MM) oder leer für jetzt:", format(new Date(), "HH:mm")) || format(new Date(), "HH:mm");
     const endTime = new Date(shift.actualStart);
     const [endH, endM] = endInput.split(":").map(Number);
     endTime.setHours(endH);
     endTime.setMinutes(endM);
 
-    // 2. Pause abfragen
+    // Pause abfragen
     let pauseMinutes = prompt("Hattest du Pause? Falls ja, wie viele Minuten?", "0") || "0";
 
     const durationMinutes = Math.max(differenceInMinutes(endTime, parseISO(shift.actualStart)) - Number(pauseMinutes), 0);
