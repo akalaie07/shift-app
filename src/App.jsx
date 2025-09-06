@@ -1,11 +1,24 @@
 import React, { useState, useEffect } from "react";
-import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, addWeeks, subWeeks, parseISO, isSameDay, format, differenceInMinutes } from "date-fns";
-import Navbar from "./Navbar";
-import ShiftList from "./ShiftList";
+import {
+  startOfWeek,
+  endOfWeek,
+  startOfMonth,
+  endOfMonth,
+  eachDayOfInterval,
+  addMonths,
+  subMonths,
+  addWeeks,
+  subWeeks,
+  parseISO,
+  isSameDay,
+  format,
+  differenceInMinutes
+} from "date-fns";
+import { motion, AnimatePresence } from "framer-motion";
+import { Menu, X } from "lucide-react";
 
+// ------------------- Storage -------------------
 const STORAGE_KEY = "shifts_v1";
-
-// Speicherfunktionen
 function saveShifts(shifts) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(shifts));
 }
@@ -15,169 +28,228 @@ function loadShifts() {
   return JSON.parse(raw);
 }
 
+// ------------------- Navbar -------------------
+function Navbar({ activePage, setActivePage }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const handleClick = (page) => { setActivePage(page); setMenuOpen(false); };
+
+  return (
+    <nav className="bg-red-600 text-white px-4 py-3 flex justify-between items-center shadow-md">
+      <h1 className="text-lg sm:text-xl font-bold">Freddy Fresh</h1>
+
+      <div className="hidden md:flex gap-6">
+        {["home","kalender","schichten"].map((p)=>(
+          <button key={p} onClick={()=>handleClick(p)}
+            className={`transition ${activePage===p?"underline":"hover:text-gray-200"}`}>
+            {p.charAt(0).toUpperCase()+p.slice(1)}
+          </button>
+        ))}
+      </div>
+
+      <button className="md:hidden p-2 focus:outline-none" onClick={()=>setMenuOpen(true)}>
+        <Menu size={28} color="white"/>
+      </button>
+
+      {menuOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex flex-col items-center justify-center z-50">
+          <button className="absolute top-4 right-4 text-white" onClick={()=>setMenuOpen(false)}>
+            <X size={32} color="white"/>
+          </button>
+          <div className="flex flex-col gap-8 text-3xl font-bold text-center">
+            {["home","kalender","schichten"].map((p)=>(
+              <button key={p} onClick={()=>handleClick(p)} className="bg-red-600 hover:bg-red-700 text-white rounded-lg px-8 py-4 shadow-lg transition">
+                {p.charAt(0).toUpperCase()+p.slice(1)}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </nav>
+  );
+}
+
 // ------------------- Home -------------------
 function Home({ shifts, onUpdate }) {
-  const now = new Date();
-  const futureShifts = shifts
-    .filter(s => s.start && new Date(s.start) > now || s.running)
-    .sort((a, b) => new Date(a.start) - new Date(b.start));
-  const nextShift = futureShifts[0];
+  const [now,setNow] = useState(new Date());
+  useEffect(()=>{ const t=setInterval(()=>setNow(new Date()),1000); return ()=>clearInterval(t); },[]);
 
-  const getTimeUntil = (startDate) => {
-    const diffMs = new Date(startDate) - now;
-    const diffMin = Math.max(0, Math.floor(diffMs / (1000 * 60)));
-    if (diffMin < 60) return `${diffMin} Min`;
-    else if (diffMin < 24 * 60) return `${Math.floor(diffMin / 60)} Std ${diffMin % 60} Min`;
-    else return `${Math.floor(diffMin / (60 * 24))} Tag ${diffMin % (24 * 60)} Min`;
-  };
+  useEffect(()=>{
+    const next=shifts.find(s=>!s.running&&!s.end && new Date(s.start)<=now);
+    if(next){
+      const updated=shifts.map(s=>s.id===next.id?{...s,running:true,actualStart:new Date().toISOString()}:s);
+      onUpdate(updated);
+    }
+  },[now,shifts,onUpdate]);
 
-  const handleStart = (shift) => {
-    const updated = shifts.map(s => s.id === shift.id ? { ...s, actualStart: new Date().toISOString(), running: true } : s);
-    onUpdate(updated);
-  };
+  const runningShift=shifts.find(s=>s.running);
+  const futureShifts=shifts.filter(s=>!s.running && s.start && new Date(s.start)>now).sort((a,b)=>new Date(a.start)-new Date(b.start));
+  const nextShift=futureShifts[0];
+
+  let liveDuration="";
+  let progressPercent=0;
+  if(runningShift?.actualStart){
+    const diffMs = now-new Date(runningShift.actualStart);
+    const minutes=Math.floor(diffMs/60000);
+    liveDuration=`${Math.floor(minutes/60)}h ${minutes%60}min`;
+    progressPercent = Math.min((minutes/180)*100,100);
+  }
 
   const handleEnd = (shift) => {
     let endTime = new Date().toISOString();
     let pauseMinutes = 0;
-
-    if (!window.confirm(`Endzeit jetzt übernehmen? (${format(new Date(endTime), "HH:mm")})`)) {
-      const manual = prompt("Bitte Endzeit eingeben (YYYY-MM-DD HH:MM):", format(new Date(), "yyyy-MM-dd HH:mm"));
-      if (manual) endTime = new Date(manual.replace(" ", "T")).toISOString();
+    if(!window.confirm(`Endzeit jetzt übernehmen? (${format(new Date(endTime),"HH:mm")})`)){
+      const manual = prompt("Bitte Endzeit eingeben (YYYY-MM-DD HH:MM):", format(new Date(),"yyyy-MM-dd HH:mm"));
+      if(manual) endTime = new Date(manual.replace(" ","T")).toISOString();
     }
-
-    if (window.confirm("Hattest du Pause?")) {
+    if(window.confirm("Hattest du Pause?")){
       const pauseInput = prompt("Wie viele Minuten Pause?");
-      if (pauseInput) pauseMinutes = parseInt(pauseInput);
+      if(pauseInput) pauseMinutes=parseInt(pauseInput);
     }
-
-    const updated = shifts.map(s => {
-      if (s.id === shift.id) {
-        const durationMinutes = Math.max(differenceInMinutes(new Date(endTime), parseISO(s.actualStart)) - pauseMinutes, 0);
-        return { ...s, end: endTime, pauseMinutes, durationMinutes, running: false };
+    const updated = shifts.map(s=>{
+      if(s.id===shift.id){
+        const durationMinutes=Math.max(differenceInMinutes(new Date(endTime), parseISO(s.actualStart||s.start))-pauseMinutes,0);
+        return {...s,end:endTime,pauseMinutes,durationMinutes,running:false};
       }
       return s;
     });
-
     onUpdate(updated);
   };
 
   return (
-    <div id="home" className="mb-6 flex justify-center">
-      {nextShift ? (
-        <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md text-center transition-transform hover:scale-105">
+    <div className="mb-6 flex justify-center">
+      {runningShift ? (
+        <motion.div initial={{opacity:0, scale:0.8}} animate={{opacity:1, scale:1}} className="bg-white p-10 rounded-xl shadow-xl relative flex flex-col items-center">
+          <div className="relative w-64 h-64 mb-6">
+            <svg className="w-64 h-64" viewBox="0 0 36 36">
+              <path className="text-gray-300" strokeWidth="3" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+              <motion.path strokeWidth="3" stroke="#22c55e" fill="none" strokeDasharray="100" strokeDashoffset={100-progressPercent} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-center font-semibold text-gray-800">
+              <h2 className="text-3xl font-bold text-red-700 mb-2">Schicht läuft</h2>
+              <p className="text-xl">Gestartet: {format(new Date(runningShift.actualStart),"HH:mm")}</p>
+              <p className="text-xl mt-2">Dauer: {liveDuration}</p>
+            </div>
+          </div>
+          <button onClick={()=>handleEnd(runningShift)} className="mt-4 bg-red-600 text-white px-6 py-3 text-lg rounded-lg hover:bg-red-700 transition">Schicht beenden</button>
+        </motion.div>
+      ) : nextShift ? (
+        <motion.div initial={{opacity:0}} animate={{opacity:1}} className="bg-white p-10 rounded-xl shadow-xl flex flex-col items-center">
           <h2 className="text-3xl font-bold text-red-700 mb-4">Nächste Schicht</h2>
-          <p className="text-gray-800 text-2xl font-semibold">{format(parseISO(nextShift.start), "dd.MM.yyyy HH:mm")}</p>
-          {!nextShift.running && new Date(nextShift.start) <= now && (
-            <button
-              onClick={() => handleStart(nextShift)}
-              className="bg-green-600 text-white px-4 py-2 rounded mt-4 hover:bg-green-700 transition"
-            >
-              Schicht starten
-            </button>
-          )}
-          {nextShift.running && (
-            <button
-              onClick={() => handleEnd(nextShift)}
-              className="bg-red-600 text-white px-4 py-2 rounded mt-4 hover:bg-red-700 transition"
-            >
-              Schicht beenden
-            </button>
-          )}
-          {!nextShift.running && new Date(nextShift.start) > now && (
-            <p className="mt-3 text-gray-600 font-medium text-xl">Beginnt in: {getTimeUntil(nextShift.start)}</p>
-          )}
-        </div>
+          <p className="text-2xl text-gray-800 font-semibold">{format(parseISO(nextShift.start),"dd.MM.yyyy HH:mm")}</p>
+        </motion.div>
       ) : (
-        <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md text-center">
+        <motion.div initial={{opacity:0}} animate={{opacity:1}} className="bg-white p-10 rounded-xl shadow-xl flex flex-col items-center">
           <h2 className="text-3xl font-bold text-red-700">Du hast aktuell keine Schicht</h2>
-        </div>
+        </motion.div>
       )}
     </div>
   );
 }
 
+
 // ------------------- Kalender -------------------
 function Calendar({ shifts, currentMonthStart, setMonthStart }) {
   const monthEnd = endOfMonth(currentMonthStart);
-  const days = Array.from({ length: monthEnd.getDate() }, (_, i) => new Date(currentMonthStart.getFullYear(), currentMonthStart.getMonth(), i + 1));
-  const shiftsForDay = (day) => shifts.filter(s => isSameDay(parseISO(s.start), day));
+  const days = eachDayOfInterval({start:currentMonthStart,end:monthEnd});
+  const shiftsForDay = (day)=>shifts.filter(s=>isSameDay(parseISO(s.start),day));
 
   return (
-    <div id="kalender" className="mb-6">
+    <div className="mb-6 overflow-hidden relative">
       <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
-        <button onClick={() => setMonthStart(new Date(currentMonthStart.getFullYear(), currentMonthStart.getMonth() - 1, 1))} className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition">← Vorheriger Monat</button>
-        <span className="text-xl font-semibold text-red-700">{format(currentMonthStart, "MMMM yyyy")}</span>
-        <button onClick={() => setMonthStart(new Date(currentMonthStart.getFullYear(), currentMonthStart.getMonth() + 1, 1))} className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition">Nächster Monat →</button>
+        <button onClick={()=>setMonthStart(subMonths(currentMonthStart,1))} className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition">← Vorheriger Monat</button>
+        <span className="text-xl font-semibold text-red-700">{format(currentMonthStart,"MMMM yyyy")}</span>
+        <button onClick={()=>setMonthStart(addMonths(currentMonthStart,1))} className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition">Nächster Monat →</button>
       </div>
-      <div className="grid grid-cols-7 gap-2">
-        {days.map(day => {
+      <motion.div key={currentMonthStart} initial={{x:100,opacity:0}} animate={{x:0,opacity:1}} exit={{x:-100,opacity:0}} className="grid grid-cols-7 gap-2">
+        {days.map(day=>{
           const dayShifts = shiftsForDay(day);
           return (
-            <div key={day} className={`p-2 rounded-lg text-center border ${dayShifts.length ? "bg-red-100 border-red-400" : "bg-white"}`}>
-              <div className="font-semibold text-red-700">{format(day, "d")}</div>
-              {dayShifts.map(shift => (
-                <div key={shift.id} className="text-sm bg-red-200 text-red-800 rounded px-1 py-0.5 mt-1">
-                  {format(parseISO(shift.start), "HH:mm")}
-                </div>
-              ))}
+            <div key={day} className="p-2 rounded-lg text-center border bg-white">
+              <div className="font-semibold text-red-700">{format(day,"d")}</div>
+              {dayShifts.map(shift=>{
+                let bg="bg-yellow-200 text-yellow-800";
+                if(shift.running) bg="bg-green-200 text-green-800";
+                if(shift.end) bg="bg-gray-200 text-gray-600";
+                return (
+                  <div key={shift.id} className={`text-sm rounded px-1 py-0.5 mt-1 ${bg}`}>
+                    {format(parseISO(shift.start),"HH:mm")}{shift.end && <> - {format(parseISO(shift.end),"HH:mm")}</>}
+                  </div>
+                );
+              })}
             </div>
           );
         })}
+      </motion.div>
+    </div>
+  );
+}
+
+// ------------------- Schichten (Wochenansicht) -------------------
+function ShiftList({ shifts, onUpdate, onDelete }) {
+  const [newShiftTime,setNewShiftTime]=useState("");
+  const [weekStart,setWeekStart]=useState(startOfWeek(new Date(),{weekStartsOn:1}));
+
+  const handleCreate=()=>{
+    if(!newShiftTime) return;
+    const shift={id:`${Date.now()}-${Math.floor(Math.random()*10000)}`,start:new Date(newShiftTime).toISOString(),running:false};
+    onUpdate([...shifts,shift]);
+    setNewShiftTime("");
+  };
+
+  const weekEnd=endOfWeek(weekStart,{weekStartsOn:1});
+  const days=eachDayOfInterval({start:weekStart,end:weekEnd});
+  const shiftsForDay=(day)=>shifts.filter(s=>isSameDay(parseISO(s.start),day));
+
+  return (
+    <div className="relative">
+      <h2 className="text-2xl font-bold text-red-700 mb-4 text-center">Schichten verwalten</h2>
+      <div className="flex gap-2 mb-4 justify-center">
+        <input type="datetime-local" value={newShiftTime} onChange={e=>setNewShiftTime(e.target.value)} className="border rounded px-3 py-2"/>
+        <button onClick={handleCreate} className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">Hinzufügen</button>
+      </div>
+      <div className="flex gap-2 overflow-x-auto py-2">
+        {days.map(day=>(
+          <div key={day} className="flex-shrink-0 w-36 p-3 border rounded text-center bg-white shadow-md">
+            <div className="font-semibold text-red-700 mb-2">{format(day,"EEE d")}</div>
+            <AnimatePresence>
+              {shiftsForDay(day).map(shift=>(
+                <motion.div key={shift.id} initial={{opacity:0,x:-20}} animate={{opacity:1,x:0}} exit={{opacity:0,x:20}} className="mb-2 border rounded-lg p-2 bg-red-100 text-red-800 relative">
+                  {format(parseISO(shift.start),"HH:mm")}
+                  <div className="absolute top-0 right-0 flex flex-col">
+                    <button onClick={()=>{const newTime=prompt("Neue Startzeit (YYYY-MM-DD HH:MM):"); if(newTime){shift.start=new Date(newTime.replace(" ","T")).toISOString(); onUpdate([...shifts])}}} className="text-xs px-1">✎</button>
+                    <button onClick={()=>onDelete(shift.id)} className="text-xs px-1">🗑</button>
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+        ))}
       </div>
     </div>
   );
 }
 
-// ------------------- App -------------------
-// App.jsx
-// ... (Rest bleibt gleich oben)
+// ------------------- APP -------------------
+export default function App(){
+  const [shifts,setShifts]=useState([]);
+  const [activePage,setActivePage]=useState("home");
+  const [currentMonthStart,setMonthStart]=useState(startOfMonth(new Date()));
 
-export default function App() {
-  const [shifts, setShifts] = useState([]);
-  const [activePage, setActivePage] = useState("home");
-  const [currentMonthStart, setMonthStart] = useState(new Date());
+  useEffect(()=>setShifts(loadShifts()),[]);
 
-  useEffect(() => setShifts(loadShifts()), []);
-
-  // 🔄 automatischer Start-Checker
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const now = new Date();
-      let changed = false;
-      const updated = shifts.map(s => {
-        if (!s.running && new Date(s.start) <= now && !s.end) {
-          changed = true;
-          return { ...s, actualStart: new Date().toISOString(), running: true };
-        }
-        return s;
-      });
-      if (changed) {
-        setShifts(updated);
-        saveShifts(updated);
-      }
-    }, 60000); // jede Minute prüfen
-    return () => clearInterval(interval);
-  }, [shifts]);
-
-  const handleCreate = (shift) => { const updated = [...shifts, shift]; setShifts(updated); saveShifts(updated); };
-  const handleDelete = (id) => { const updated = shifts.filter(s => s.id !== id); setShifts(updated); saveShifts(updated); };
-  const handleUpdate = (updatedShifts) => { setShifts(updatedShifts); saveShifts(updatedShifts); };
+  const handleUpdate=(updatedShifts)=>{ setShifts(updatedShifts); saveShifts(updatedShifts);}
+  const handleDelete=(id)=>{ handleUpdate(shifts.filter(s=>s.id!==id));}
 
   return (
     <div className="min-h-screen bg-red-50 text-gray-800">
-      <Navbar activePage={activePage} setActivePage={setActivePage} />
-      <div className="max-w-full sm:max-w-6xl mx-auto bg-white shadow-lg rounded-lg p-4 sm:p-6 mt-4">
-        {activePage === "home" && <Home shifts={shifts} onUpdate={handleUpdate} />}
-        {activePage === "kalender" && <Calendar shifts={shifts} currentMonthStart={currentMonthStart} setMonthStart={setMonthStart} />}
-        {activePage === "schichten" && (
-          <ShiftList
-            shifts={shifts}
-            onUpdate={handleUpdate}
-            onDelete={handleDelete}
-          />
-        )}
+      <Navbar activePage={activePage} setActivePage={setActivePage}/>
+      <div className="max-w-full sm:max-w-6xl mx-auto bg-white shadow-lg rounded-lg p-4 sm:p-6 mt-4 overflow-hidden">
+        <AnimatePresence exitBeforeEnter>
+          {activePage==="home" && <Home key="home" shifts={shifts} onUpdate={handleUpdate}/>}
+          {activePage==="kalender" && <Calendar key="kalender" shifts={shifts} currentMonthStart={currentMonthStart} setMonthStart={setMonthStart}/>}
+          {activePage==="schichten" && <ShiftList key="schichten" shifts={shifts} onUpdate={handleUpdate} onDelete={handleDelete}/>}
+        </AnimatePresence>
       </div>
     </div>
   );
 }
-
