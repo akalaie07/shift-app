@@ -18,15 +18,11 @@ export default function Navbar({currentPage,setCurrentPage}) {
         <button onClick={()=>handleClick("schichten")} className="hover:text-gray-200 transition">Schichten</button>
       </div>
 
-      <button className="md:hidden p-2 focus:outline-none" onClick={()=>setMenuOpen(true)}>
-        <Menu size={28} color="white"/>
-      </button>
+      <button className="md:hidden p-2 focus:outline-none" onClick={()=>setMenuOpen(true)}><Menu size={28} color="white"/></button>
 
       {menuOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex flex-col items-center justify-center z-50">
-          <button className="absolute top-4 right-4 text-white" onClick={()=>setMenuOpen(false)}>
-            <X size={32} color="white"/>
-          </button>
+          <button className="absolute top-4 right-4 text-white" onClick={()=>setMenuOpen(false)}><X size={32} color="white"/></button>
           <div className="flex flex-col gap-8 text-3xl font-bold text-center">
             <button onClick={()=>handleClick("home")} className="bg-red-600 hover:bg-red-700 text-white rounded-lg px-8 py-4 shadow-lg transition">Home</button>
             <button onClick={()=>handleClick("kalender")} className="bg-red-600 hover:bg-red-700 text-white rounded-lg px-8 py-4 shadow-lg transition">Kalender</button>
