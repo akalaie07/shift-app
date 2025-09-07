@@ -1,40 +1,46 @@
-import React, { useState } from "react";
-import { X, Menu } from "lucide-react";
+// src/Navbar.jsx
+import React from "react";
+import logo from "./assets/freddy-logo.png";
 
-export default function Navbar({ activePage, setActivePage }) {
-  const [menuOpen, setMenuOpen] = useState(false);
-
-  const handleClick = (page) => {
-    setActivePage(page);
-    setMenuOpen(false);
-  };
-
+export default function Navbar({ activePage, setActivePage, shifts }) {
   return (
-    <nav className="bg-red-600 text-white px-4 py-3 flex justify-between items-center shadow-md">
-      <h1 className="text-lg sm:text-xl font-bold">Freddy Fresh</h1>
-
-      <div className="hidden md:flex gap-6">
-        <button onClick={()=>handleClick("home")} className={`transition ${activePage==="home"?"underline":"hover:text-gray-200"}`}>Home</button>
-        <button onClick={()=>handleClick("kalender")} className={`transition ${activePage==="kalender"?"underline":"hover:text-gray-200"}`}>Kalender</button>
-        <button onClick={()=>handleClick("schichten")} className={`transition ${activePage==="schichten"?"underline":"hover:text-gray-200"}`}>Schichten</button>
+    <nav className="bg-white shadow px-4 py-3 relative flex items-center justify-between">
+      {/* Links */}
+      <div className="flex items-center gap-4">
+        <button
+          onClick={() => setActivePage("home")}
+          className={`font-semibold ${activePage === "home" ? "text-red-600" : "text-gray-600 hover:text-red-600"}`}
+        >
+          Home
+        </button>
+        <button
+          onClick={() => setActivePage("kalender")}
+          className={`font-semibold ${activePage === "kalender" ? "text-red-600" : "text-gray-600 hover:text-red-600"}`}
+        >
+          Kalender
+        </button>
+        <button
+          onClick={() => setActivePage("schichten")}
+          className={`font-semibold ${activePage === "schichten" ? "text-red-600" : "text-gray-600 hover:text-red-600"}`}
+        >
+          Schichten
+        </button>
       </div>
 
-      <button className="md:hidden p-2 focus:outline-none" onClick={()=>setMenuOpen(true)}>
-        <Menu size={28} color="white"/>
-      </button>
+      {/* Logo absolut zentriert */}
+      <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2">
+        <img
+          src={logo}
+          alt="Logo"
+          className="h-10 cursor-pointer"
+          onClick={() => setActivePage("home")} // klickbar zurück zu Home
+        />
+      </div>
 
-      {menuOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex flex-col items-center justify-center z-50">
-          <button className="absolute top-4 right-4 text-white" onClick={()=>setMenuOpen(false)}>
-            <X size={32} color="white"/>
-          </button>
-          <div className="flex flex-col gap-8 text-3xl font-bold text-center">
-            <button onClick={()=>handleClick("home")} className="bg-red-600 hover:bg-red-700 text-white rounded-lg px-8 py-4 shadow-lg transition">Home</button>
-            <button onClick={()=>handleClick("kalender")} className="bg-red-600 hover:bg-red-700 text-white rounded-lg px-8 py-4 shadow-lg transition">Kalender</button>
-            <button onClick={()=>handleClick("schichten")} className="bg-red-600 hover:bg-red-700 text-white rounded-lg px-8 py-4 shadow-lg transition">Schichten</button>
-          </div>
-        </div>
-      )}
+      {/* Rechts (optional) */}
+      <div className="flex items-center gap-4">
+        {/* Platz für später, z.B. User-Icon */}
+      </div>
     </nav>
   );
 }
