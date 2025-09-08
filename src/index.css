@@ -1,3 +1,80 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ------------------------------
+   Design-System (CSS-Variablen)
+   ------------------------------ */
+
+:root {
+  /* Page */
+  --page-bg: #fff7f7;
+  --card-bg: #ffffff;
+  --text: #111827;
+  --muted: #6b7280;
+
+  /* Primary (Rot, ähnlich tailwind 'red-600') */
+  --primary: #dc2626;
+  --primary-700: #b91c1c;
+
+  /* Nav */
+  --nav-text: #ffffff;
+  --nav-bg: var(--primary);
+
+  --shadow: 0 6px 20px rgba(0,0,0,0.08);
+  --card-radius: 1rem;
+  --transition: 200ms;
+}
+
+/* Dark theme overrides */
+[data-theme="dark"] {
+  --page-bg: #0b1220;
+  --card-bg: #0f1724;
+  --text: #e6eef6;
+  --muted: #94a3b8;
+
+  --primary: #ef4444;
+  --primary-700: #b91c1c;
+
+  --nav-text: #f8fafc;
+  --nav-bg: #b91c1c;
+
+  --shadow: 0 8px 24px rgba(0,0,0,0.6);
+}
+
+/* Base page */
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  background: var(--page-bg);
+  color: var(--text);
+  transition: background var(--transition), color var(--transition);
+  font-family: "Quicksand", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Global small helpers that use theme variables */
+.app-card {
+  background: var(--card-bg);
+  color: var(--text);
+  border-radius: var(--card-radius);
+  box-shadow: var(--shadow);
+  transition: background var(--transition), color var(--transition), box-shadow var(--transition);
+}
+
+/* Navbar helpers (falls du klassische Tailwind-Klassen benutzt, bleiben sie gültig) */
+.nav-theme {
+  background: var(--nav-bg) !important;
+  color: var(--nav-text) !important;
+}
+
+/* Make sure scrollbars and overflow are not causing unwanted scrolls */
+html, body {
+  overscroll-behavior-y: none;
+}
+
+/* Minor tweaks for consistency */
+button:focus { outline: none; box-shadow: 0 0 0 4px rgba(0,0,0,0.04); }
