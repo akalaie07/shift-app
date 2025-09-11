@@ -2,7 +2,8 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { startOfMonth, parseISO, differenceInMinutes, format } from "date-fns";
 import { AnimatePresence, motion } from "framer-motion";
-
+import { supabase } from './supabaseClient';
+import Auth from './Auth';
 import Navbar from "./Navbar";
 import ShiftList from "./ShiftList";
 import Stats from "./Stats";
@@ -160,18 +161,71 @@ function Home({ shifts, onUpdate }) {
 
 // ------------------- APP -------------------
 export default function App() {
+  const [user, setUser] = useState(null);
   const [shifts, setShifts] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [activePage, setActivePage] = useState("home");
   const [currentMonthStart, setMonthStart] = useState(startOfMonth(new Date()));
 
-  useEffect(() => setShifts(loadShifts()), []);
+  // Auth & Daten laden
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      const currentUser = data.user;
+      setUser(currentUser);
+      if (currentUser) fetchShifts(currentUser.id);
+    });
 
-  const handleUpdate = (updatedShifts) => {
-    setShifts(updatedShifts);
-    saveShifts(updatedShifts);
+    // Live-Auth-Updates
+    supabase.auth.onAuthStateChange((_event, session) => {
+      const newUser = session?.user ?? null;
+      setUser(newUser);
+      if (newUser) fetchShifts(newUser.id);
+      else setShifts([]);
+    });
+  }, []);
+
+  // Schichten laden
+  const fetchShifts = async (userId) => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("shifts")
+      .select("*")
+      .eq("user_id", userId)
+      .order("start", { ascending: true });
+
+    if (error) {
+      console.error("Fehler beim Laden der Schichten:", error.message);
+    } else {
+      setShifts(data);
+    }
+
+    setLoading(false);
   };
 
-  const handleDelete = (id) => handleUpdate(shifts.filter((s) => s.id !== id));
+  // Schichten speichern
+  const handleUpdate = async (updatedShifts) => {
+    setShifts(updatedShifts);
+
+    const toUpsert = updatedShifts.map((s) => ({
+      ...s,
+      user_id: user.id,
+    }));
+
+    const { error } = await supabase.from("shifts").upsert(toUpsert, {
+      onConflict: "id",
+    });
+
+    if (error) console.error("Fehler beim Speichern:", error.message);
+  };
+
+  // Schicht löschen
+  const handleDelete = async (id) => {
+    const { error } = await supabase.from("shifts").delete().eq("id", id);
+    if (!error) setShifts(shifts.filter((s) => s.id !== id));
+  };
+
+  if (!user) return <Auth />;
+  if (loading) return <div className="p-6 text-center text-gray-600">Lade Schichten…</div>;
 
   return (
     <div className="min-h-screen bg-red-50 text-gray-800">
