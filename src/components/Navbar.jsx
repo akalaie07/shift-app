@@ -1,16 +1,31 @@
 // src/Navbar.jsx
 import React, { useState, useEffect } from "react";
 import { Menu, X } from "lucide-react"; // Icons
-import logo from "/freddy-logo.png"; // passe den Pfad ggf. an
 
 export default function Navbar({ activePage, setActivePage }) {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [theme, setTheme] = useState(localStorage.getItem("theme") || "light");
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+
+    // 🔎 Beobachte Dark/Light Wechsel
+    const observer = new MutationObserver(() => {
+      const isDark = document.documentElement.classList.contains("dark");
+      setTheme(isDark ? "dark" : "light");
+    });
+
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      observer.disconnect();
+    };
   }, []);
 
   const toggleMenu = () => setMenuOpen(!menuOpen);
@@ -43,12 +58,16 @@ export default function Navbar({ activePage, setActivePage }) {
           </div>
         )}
 
-        {/* Logo immer zentriert */}
+        {/* Logo in der Mitte */}
         <div className="absolute left-1/2 transform -translate-x-1/2">
-          <img src={logo} alt="Logo" className="h-10 object-contain" />
+          <img
+            src={theme === "dark" ? "/freddy-logo-dark.png" : "/freddy-logo-light.png"}
+            alt="Logo"
+            className="h-10 object-contain transition duration-300"
+          />
         </div>
 
-        {/* Hamburger-Icon für Mobile */}
+        {/* Mobile: Hamburger Menü */}
         {isMobile && (
           <button onClick={toggleMenu} className="ml-auto">
             {menuOpen ? <X size={28} /> : <Menu size={28} />}
