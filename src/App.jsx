@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { supabase } from "./supabaseClient";
 import useAuth from "./hooks/useAuth";
 
-import AuthPage from "./Auth";
+import AuthPage from "./pages/AuthPage";
 import Navbar from "./components/Navbar";
 import Stats from "./components/Stats";
 import Home from "./pages/Home"; // musst du auslagern aus bisherigem App.jsx
