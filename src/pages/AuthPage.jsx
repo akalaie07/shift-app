@@ -39,7 +39,7 @@ export default function AuthPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-700 via-red-600 to-red-400">
       <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center">
-        <img src="/src/assets/freddy-logo.png" alt="Freddy Fresh Logo" className="mx-auto h-16 mb-6" />
+        <img src="/freddy-logo.png" alt="Freddy Fresh Logo" className="mx-auto h-16 mb-6" />
         <h1 className="text-3xl font-bold text-red-700 mb-2">
           {isLogin ? "Willkommen zurück!" : "Konto erstellen"}
         </h1>
