@@ -1,23 +1,20 @@
 // src/Auth.jsx
+import React from 'react';
+import { Auth } from '@supabase/auth-ui-react';
+import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { supabase } from './supabaseClient';
 
-export default function Auth() {
-  const handleLogin = async () => {
-    const { error } = await supabase.auth.signInWithOtp({
-      email: prompt('Deine E-Mail:'),
-    });
-    if (error) alert(error.message);
-    else alert('Schau in deine Mails für den Login-Link!');
-  };
-
+export default function AuthPage() {
   return (
-    <div className="flex justify-center items-center min-h-screen">
-      <button
-        onClick={handleLogin}
-        className="bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700"
-      >
-        Login mit E-Mail
-      </button>
+    <div className="flex items-center justify-center min-h-screen bg-red-50">
+      <div className="max-w-md w-full bg-white rounded-xl p-8 shadow-lg">
+        <Auth
+          supabaseClient={supabase}
+          appearance={{ theme: ThemeSupa }}
+          theme="light"
+          providers={['email']} // Oder ['google'] wenn du willst
+        />
+      </div>
     </div>
   );
 }

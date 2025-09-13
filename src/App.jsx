@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { startOfMonth, parseISO, differenceInMinutes, format } from "date-fns";
 import { AnimatePresence, motion } from "framer-motion";
 import { supabase } from './supabaseClient';
-import Auth from './Auth';
+import AuthPage from './Auth';
 import Navbar from "./Navbar";
 import ShiftList from "./ShiftList";
 import Stats from "./Stats";
@@ -224,7 +224,7 @@ export default function App() {
     if (!error) setShifts(shifts.filter((s) => s.id !== id));
   };
 
-  if (!user) return <Auth />;
+  if (!user) return <AuthPage />;
   if (loading) return <div className="p-6 text-center text-gray-600">Lade Schichten…</div>;
 
   return (
