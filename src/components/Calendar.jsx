@@ -1,5 +1,5 @@
 // src/Calendar.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   startOfWeek,
@@ -7,7 +7,6 @@ import {
   startOfMonth,
   endOfMonth,
   addDays,
-  addWeeks,
   addMonths,
   eachDayOfInterval,
   isSameMonth,
@@ -16,28 +15,6 @@ import {
   format,
 } from "date-fns";
 import useIsMobile from "../hooks/useIsMobile";
-
-const Legend = ({ show }) => (
-  <AnimatePresence>
-    {show && (
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -10 }}
-        className="absolute top-12 right-4 bg-white dark:bg-gray-900 
-                   border border-gray-200 dark:border-gray-700 rounded shadow-lg 
-                   p-3 text-left z-20 w-64"
-      >
-        <h3 className="font-semibold text-red-700 dark:text-red-400 mb-2">Legende</h3>
-        <ul className="text-sm space-y-1 text-gray-700 dark:text-gray-300">
-          <li><span className="inline-block w-3 h-3 bg-gray-400 mr-2 rounded-sm"></span> Vergangene Schicht</li>
-          <li><span className="inline-block w-3 h-3 bg-yellow-400 mr-2 rounded-sm"></span> Kommende Schicht</li>
-          <li><span className="inline-block w-3 h-3 bg-green-500 mr-2 rounded-sm"></span> Nächste Schicht</li>
-        </ul>
-      </motion.div>
-    )}
-  </AnimatePresence>
-);
 
 export default function Calendar({ shifts }) {
   const [view, setView] = useState(localStorage.getItem("calendarView") || "grid");
@@ -92,7 +69,6 @@ export default function Calendar({ shifts }) {
             >
               ℹ️
             </button>
-            <Legend show={showLegend} />
           </div>
           <button
             onClick={() => setMonthStart(addMonths(monthEnd, 1))}
@@ -101,6 +77,26 @@ export default function Calendar({ shifts }) {
             {isMobile ? "→" : "Nächster Monat →"}
           </button>
         </div>
+
+        {/* Legende */}
+        <AnimatePresence>
+          {showLegend && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="absolute top-12 left-1/2 transform -translate-x-1/2 bg-white dark:bg-gray-900 
+                         border border-gray-200 dark:border-gray-700 rounded shadow-lg p-3 text-left z-20 w-64"
+            >
+              <h3 className="font-semibold text-red-700 dark:text-red-400 mb-2">Legende</h3>
+              <ul className="text-sm space-y-1 text-gray-700 dark:text-gray-300">
+                <li><span className="inline-block w-3 h-3 bg-gray-200 mr-2 rounded-sm"></span> Vergangene Schicht</li>
+                <li><span className="inline-block w-3 h-3 bg-yellow-200 mr-2 rounded-sm"></span> Kommende Schicht</li>
+                <li><span className="inline-block w-3 h-3 bg-green-200 mr-2 rounded-sm"></span> Nächste Schicht</li>
+              </ul>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Wochentage */}
         <div className="grid grid-cols-7 gap-0.5 text-center font-semibold text-red-700 dark:text-red-400 mb-1">
@@ -120,38 +116,61 @@ export default function Calendar({ shifts }) {
               <div
                 key={day}
                 onClick={() => setSelectedDay(day)}
-                className={`h-16 sm:h-20 flex flex-col justify-between p-1 rounded-lg text-center border transition cursor-pointer
+                className={`min-h-24 sm:min-h-32 flex flex-col justify-start p-1 rounded-lg text-center border transition cursor-pointer
                   ${isCurrentMonth 
                     ? "bg-white dark:bg-gray-900" 
                     : "bg-gray-200 text-gray-400"} 
                   ${isToday ? "border-2 border-red-500" : "border-gray-200 dark:border-gray-700"}
                   md:hover:bg-gray-100 dark:md:hover:bg-gray-800`}
               >
+                {/* Datum */}
                 <div className={`font-semibold ${isToday ? "bg-red-100 dark:bg-red-900 px-2 rounded-full" : ""} text-red-700 dark:text-red-400`}>
                   {format(day, "d")}
                 </div>
 
-                <div className="flex justify-center gap-1 mt-1">
-                  {dayShifts.map((shift) => {
-                    let color = "bg-yellow-400";
-                    if (shift.end || parseISO(shift.start) < today) color = "bg-gray-400";
-                    if (nextShift && shift.id === nextShift.id) color = "bg-green-500";
-                    return (
-                      <span
-                        key={shift.id}
-                        className={`w-3 h-3 rounded-full ${color}`}
-                      ></span>
-                    );
-                  })}
-                </div>
+                {/* Mobile: Punkte */}
+                {isMobile ? (
+                  <div className="flex justify-center gap-2 mt-1">
+                    {dayShifts.map((shift) => {
+                      let color = "bg-yellow-400";
+                      if (shift.end || parseISO(shift.start) < today) color = "bg-gray-400";
+                      if (nextShift && shift.id === nextShift.id) color = "bg-green-500";
+                      return <span key={shift.id} className={`w-3 h-3 rounded-full ${color}`}></span>;
+                    })}
+                  </div>
+                ) : (
+                  /* Desktop: Uhrzeiten */
+                  <div className="flex flex-col gap-2 mt-2 text-sm">
+                    {dayShifts.map((shift) => {
+                      const start = parseISO(shift.start);
+                      let classes =
+                        "rounded px-2 py-1 text-center border text-base font-medium";
+
+                      if (shift.end || start < today) {
+                        classes += " bg-gray-200 text-gray-700 border-gray-400";
+                      } else if (nextShift && shift.id === nextShift.id) {
+                        classes += " bg-green-200 text-green-900 border-green-500";
+                      } else {
+                        classes += " bg-yellow-200 text-yellow-900 border-yellow-500";
+                      }
+
+                      return (
+                        <div key={shift.id} className={classes}>
+                          {format(start, "HH:mm")}
+                          {shift.end && ` - ${format(parseISO(shift.end), "HH:mm")}`}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             );
           })}
         </div>
 
-        {/* Tooltip */}
+        {/* Tooltip (Mobile) */}
         <AnimatePresence>
-          {selectedDay && (
+          {selectedDay && isMobile && (
             <motion.div
               key="day-details"
               initial={{ opacity: 0, y: 10 }}
@@ -212,7 +231,24 @@ export default function Calendar({ shifts }) {
           >
             ℹ️
           </button>
-          <Legend show={showLegend} />
+          <AnimatePresence>
+            {showLegend && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="absolute top-10 right-0 bg-white dark:bg-gray-900 
+                           border border-gray-200 dark:border-gray-700 rounded shadow-lg p-3 text-left z-20 w-64"
+              >
+                <h3 className="font-semibold text-red-700 dark:text-red-400 mb-2">Legende</h3>
+                <ul className="text-sm space-y-1 text-gray-700 dark:text-gray-300">
+                  <li><span className="inline-block w-3 h-3 bg-gray-200 mr-2 rounded-sm"></span> Vergangene Schicht</li>
+                  <li><span className="inline-block w-3 h-3 bg-yellow-200 mr-2 rounded-sm"></span> Kommende Schicht</li>
+                  <li><span className="inline-block w-3 h-3 bg-green-200 mr-2 rounded-sm"></span> Nächste Schicht</li>
+                </ul>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
         <div className="space-y-3">
           {days.map((day) => {
@@ -241,20 +277,20 @@ export default function Calendar({ shifts }) {
                   <ul className="mt-2 space-y-1 text-gray-700 dark:text-gray-300">
                     {dayShifts.map((shift) => {
                       const start = parseISO(shift.start);
-                      const isPast = shift.end || start < now;
-                      const isNext = nextShift && shift.id === nextShift.id;
+                      let classes =
+                        "flex items-center gap-2 text-sm px-2 py-1 rounded border";
 
-                      let border = "border-gray-300"; // Standard
-                      if (isPast) border = "border-gray-500";
-                      else if (isNext) border = "border-green-500";
-                      else border = "border-yellow-400"; // Kommende Schicht
+                      if (shift.end || start < today) {
+                        classes += " bg-gray-200 dark:bg-gray-700 text-gray-600 border-gray-400";
+                      } else if (nextShift && shift.id === nextShift.id) {
+                        classes += " bg-green-200 text-green-800 border-green-500";
+                      } else {
+                        classes += " bg-yellow-200 text-yellow-800 border-yellow-500";
+                      }
 
                       return (
-                        <li
-                          key={shift.id}
-                          className={`flex items-center gap-2 text-sm bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded border ${border}`}
-                        >
-                          🕒 {format(start, "HH:mm")}
+                        <li key={shift.id} className={classes}>
+                          🕒 {format(parseISO(shift.start), "HH:mm")}
                           {shift.end && ` - ${format(parseISO(shift.end), "HH:mm")}`}
                         </li>
                       );
@@ -271,107 +307,6 @@ export default function Calendar({ shifts }) {
     );
   };
 
-  // === 3. WOCHENÜBERSICHT ===
-  const renderWeek = () => {
-  const weeks = Array.from({ length: 4 }, (_, i) =>
-    startOfWeek(addWeeks(today, i), { weekStartsOn: 1 })
-  );
-
-  const now = new Date();
-  const futureShifts = shifts
-    .filter((s) => !s.end && parseISO(s.start) > now)
-    .sort((a, b) => new Date(a.start) - new Date(b.start));
-  const nextShift = futureShifts[0];
-
-  return (
-    <div className="mb-6 space-y-6 relative">
-      <div className="flex items-center justify-between mb-4 relative">
-        <h2 className="text-xl font-bold text-red-700 dark:text-red-400 text-center">
-          Wochenübersicht
-        </h2>
-        <button
-          onClick={() => setShowLegend(!showLegend)}
-          className="text-gray-500 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100"
-          title="Legende anzeigen"
-        >
-          ℹ️
-        </button>
-        <Legend show={showLegend} />
-      </div>
-
-      {weeks.map((weekStart, i) => {
-        const days = eachDayOfInterval({ start: weekStart, end: addDays(weekStart, 6) });
-        return (
-          <div
-            key={i}
-            className="rounded-lg border shadow-md p-4 bg-white dark:bg-gray-900 
-                       border-gray-200 dark:border-gray-700"
-          >
-            <h3 className="font-semibold text-red-700 dark:text-red-400 mb-3">
-              Woche {i + 1} ({format(weekStart, "dd.MM")} - {format(addDays(weekStart, 6), "dd.MM")})
-            </h3>
-            <div className="grid grid-cols-7 gap-2 text-center">
-              {days.map((day) => {
-                const dayShifts = shiftsForDay(day);
-                const isToday = isSameDay(day, today);
-                return (
-                  <div
-                    key={day}
-                    className={`h-28 flex flex-col items-center justify-start gap-2 
-                                rounded-md border text-sm transition p-2
-                      ${isToday
-                        ? "bg-red-100 dark:bg-red-900 border-red-500"
-                        : "bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"}`}
-                  >
-                    {/* Wochentag + Datum */}
-                    <div className="flex flex-col items-center">
-                      <span className="font-bold text-red-700 dark:text-red-400">
-                        {format(day, "EEE")}
-                      </span>
-                      <span>{format(day, "d")}</span>
-                    </div>
-
-                    {/* Schichten */}
-                    <div className="flex flex-col items-center justify-center gap-1 w-full">
-                      {dayShifts.length > 0 ? (
-                        dayShifts.map((shift) => {
-                          const start = parseISO(shift.start);
-                          const isPast = shift.end || start < today;
-                          const isNext = nextShift && shift.id === nextShift.id;
-
-                          let classes =
-                            "rounded px-2 py-0.5 text-xs text-center w-full border ";
-
-                          if (isNext) {
-                            classes += "bg-green-200 text-green-800 border-green-500";
-                          } else if (isPast) {
-                            classes += "bg-gray-200 text-gray-600 border-gray-400";
-                          } else {
-                            classes += "bg-yellow-200 text-yellow-800 border-yellow-500";
-                          }
-
-                          return (
-                            <div key={shift.id} className={classes}>
-                              {format(start, "HH:mm")}
-                              {shift.end && ` - ${format(parseISO(shift.end), "HH:mm")}`}
-                            </div>
-                          );
-                        })
-                      ) : (
-                        <p className="text-gray-400 text-xs italic">–</p>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-};
-
   return (
     <div>
       {/* Ansicht Switch */}
@@ -381,9 +316,6 @@ export default function Calendar({ shifts }) {
         </button>
         <button onClick={() => handleSetView("agenda")} className={`px-3 py-1 rounded ${view === "agenda" ? "bg-red-600 text-white" : "bg-gray-200 dark:bg-gray-700"}`}>
           Monat (Agenda)
-        </button>
-        <button onClick={() => handleSetView("week")} className={`px-3 py-1 rounded ${view === "week" ? "bg-red-600 text-white" : "bg-gray-200 dark:bg-gray-700"}`}>
-          Wochenübersicht
         </button>
       </div>
 
@@ -398,7 +330,6 @@ export default function Calendar({ shifts }) {
         >
           {view === "grid" && renderGrid()}
           {view === "agenda" && renderAgenda()}
-          {view === "week" && renderWeek()}
         </motion.div>
       </AnimatePresence>
     </div>
