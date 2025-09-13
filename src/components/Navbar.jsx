@@ -1,7 +1,7 @@
 // src/Navbar.jsx
 import React, { useState, useEffect } from "react";
 import { Menu, X } from "lucide-react"; // Icons
-import logo from "./assets/freddy-logo.png"; // passe den Pfad ggf. an
+import logo from "../assets/freddy-logo.png"; // passe den Pfad ggf. an
 
 export default function Navbar({ activePage, setActivePage }) {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
