@@ -95,7 +95,7 @@ export default function Calendar({ shifts, currentMonthStart, setMonthStart }) {
       </div>
 
       {/* Grid */}
-      <div className="grid grid-cols-7 gap-2">
+      <div className="grid grid-cols-7 gap-2 w-full">
         {days.map((day) => {
           const dayShifts = shiftsForDay(day);
           const isCurrentMonth = isSameMonth(day, monthStart);
@@ -103,28 +103,38 @@ export default function Calendar({ shifts, currentMonthStart, setMonthStart }) {
           return (
             <div
               key={day}
-              className={`p-2 rounded-lg text-center border transition
+              className={`aspect-square flex flex-col items-center justify-start 
+                          p-1 rounded-lg text-center border transition text-xs sm:text-sm
                 ${isCurrentMonth 
-                  ? "bg-white dark:bg-gray-900" 
-                  : "bg-gray-200 text-gray-400"} 
+                  ? "bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700" 
+                  : "bg-gray-100 text-gray-400 border-gray-200"} 
                 md:hover:bg-gray-100 dark:md:hover:bg-gray-800`}
             >
-              <div className="font-semibold text-red-700 dark:text-red-400">{format(day, "d")}</div>
-              {dayShifts.map((shift) => {
-                let bg = "bg-yellow-200 text-yellow-800";
-                if (shift.end || parseISO(shift.start) < now) bg = "bg-gray-200 text-gray-600";
-                if (nextShift && shift.id === nextShift.id) bg = "bg-green-200 text-green-800";
+              {/* Datum */}
+              <div className="font-semibold text-red-700 dark:text-red-400">
+                {format(day, "d")}
+              </div>
 
-                return (
-                  <div
-                    key={shift.id}
-                    className={`text-sm rounded px-1 py-0.5 mt-1 ${bg}`}
-                  >
-                    {format(parseISO(shift.start), "HH:mm")}
-                    {shift.end && <> - {format(parseISO(shift.end), "HH:mm")}</>}
-                  </div>
-                );
-              })}
+              {/* Schichten */}
+              <div className="flex flex-col items-center gap-0.5 mt-1 w-full">
+                {dayShifts.map((shift) => {
+                  let bg = "bg-yellow-200 text-yellow-800";
+                  if (shift.end || parseISO(shift.start) < now)
+                    bg = "bg-gray-200 text-gray-600";
+                  if (nextShift && shift.id === nextShift.id)
+                    bg = "bg-green-200 text-green-800";
+
+                  return (
+                    <div
+                      key={shift.id}
+                      className={`rounded px-1 py-0.5 ${bg} whitespace-nowrap text-[10px] sm:text-xs`}
+                    >
+                      {format(parseISO(shift.start), "HH:mm")}
+                      {shift.end && <> - {format(parseISO(shift.end), "HH:mm")}</>}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           );
         })}
