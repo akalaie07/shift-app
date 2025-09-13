@@ -1,4 +1,4 @@
-// src/ShiftList.jsx
+// src/components/ShiftList.jsx 
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -9,24 +9,24 @@ import {
   eachDayOfInterval,
   format,
   parseISO,
-  isSameDay,
+  differenceInMinutes,
 } from "date-fns";
 import useIsMobile from "../hooks/useIsMobile";
+import { Plus, Clock, Coffee, Trash2, Edit2 } from "lucide-react";
 
 export default function ShiftList({ shifts, onUpdate, onDelete }) {
   const [newShiftTime, setNewShiftTime] = useState("");
   const [currentWeekStart, setWeekStart] = useState(
     startOfWeek(new Date(), { weekStartsOn: 1 })
   );
-  const [menuOpen, setMenuOpen] = useState(null);
-  const isMobile = useIsMobile();
-
   const [modalOpen, setModalOpen] = useState(false);
   const [modalData, setModalData] = useState({
     start: "",
     end: "",
     pause: 0,
   });
+
+  const isMobile = useIsMobile();
 
   const openOldShiftModal = (defaultDate) => {
     setModalData({
@@ -42,7 +42,7 @@ export default function ShiftList({ shifts, onUpdate, onDelete }) {
     const end = new Date(modalData.end);
     const pauseMinutes = parseInt(modalData.pause) || 0;
     const durationMinutes = Math.max(
-      Math.floor((end - start) / 60000) - pauseMinutes,
+      differenceInMinutes(end, start) - pauseMinutes,
       0
     );
 
@@ -56,26 +56,6 @@ export default function ShiftList({ shifts, onUpdate, onDelete }) {
     };
     onUpdate([...shifts, oldShift]);
     setModalOpen(false);
-    setNewShiftTime("");
-  };
-
-  const handleCreate = () => {
-    if (!newShiftTime) return;
-    const shiftDate = new Date(newShiftTime);
-    const now = new Date();
-
-    if (shiftDate < now) {
-      openOldShiftModal(shiftDate);
-      return;
-    }
-
-    const shift = {
-      id: `${Date.now()}-${Math.floor(Math.random() * 10000)}`,
-      start: shiftDate.toISOString(),
-      running: false,
-    };
-    onUpdate([...shifts, shift]);
-    setNewShiftTime("");
   };
 
   const handleEdit = (shift) => {
@@ -91,121 +71,145 @@ export default function ShiftList({ shifts, onUpdate, onDelete }) {
       );
       onUpdate(updated);
     }
-    setMenuOpen(null);
   };
 
   const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
-  const days = eachDayOfInterval({ start: currentWeekStart, end: weekEnd });
-  const shiftsForDay = (day) =>
-    shifts.filter((s) => isSameDay(parseISO(s.start), day));
+  const shiftsForWeek = shifts.filter(
+    (s) =>
+      s.start &&
+      new Date(s.start) >= currentWeekStart &&
+      new Date(s.start) <= weekEnd
+  );
 
   return (
-    <div id="schichten">
-      <h2 className="text-2xl font-bold text-red-700 dark:text-red-400 mb-4 text-center">
-        Schichten verwalten
-      </h2>
+    <div id="schichten" className="relative">
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-2xl font-bold text-red-700 dark:text-red-400">
+          Schichten verwalten
+        </h2>
 
-      {/* Neue Schicht */}
-      <div className="flex gap-2 mb-4 justify-center flex-wrap">
-        <input
-          type="datetime-local"
-          value={newShiftTime}
-          onChange={(e) => setNewShiftTime(e.target.value)}
-          className="border rounded px-2 py-1 
-                     bg-gray-50 dark:bg-gray-800 
-                     text-gray-800 dark:text-white 
-                     border-gray-300 dark:border-gray-700"
-        />
-        <button
-          onClick={handleCreate}
-          className="px-4 py-1 rounded transition 
-                     bg-red-600 text-white 
-                     md:hover:bg-red-700 dark:bg-red-500 dark:md:hover:bg-red-600"
-        >
-          Hinzufügen
-        </button>
+        {/* Desktop: Button oben rechts */}
+        {!isMobile && (
+          <button
+            onClick={() => setModalOpen(true)}
+            className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg shadow hover:bg-red-700 transition"
+          >
+            <Plus size={18} /> Neue Schicht
+          </button>
+        )}
       </div>
 
       {/* Navigation */}
-      <div className="flex justify-between mb-2 flex-wrap gap-2">
+      <div className="flex justify-between items-center mb-4">
         <button
           onClick={() => setWeekStart(subWeeks(currentWeekStart, 1))}
-          className="bg-red-600 text-white px-3 py-1 rounded 
-                     md:hover:bg-red-700 dark:bg-red-500 dark:md:hover:bg-red-600"
+          className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700"
         >
           {isMobile ? "←" : "< Vorherige Woche"}
         </button>
-        {!isMobile && (
-          <span className="font-semibold text-red-700 dark:text-red-400">
-            {format(currentWeekStart, "dd.MM.yyyy")} -{" "}
-            {format(weekEnd, "dd.MM.yyyy")}
-          </span>
-        )}
+        <span className="font-semibold text-red-700 dark:text-red-400">
+          {format(currentWeekStart, "dd.MM.yyyy")} - {format(weekEnd, "dd.MM.yyyy")}
+        </span>
         <button
           onClick={() => setWeekStart(addWeeks(currentWeekStart, 1))}
-          className="bg-red-600 text-white px-3 py-1 rounded 
-                     md:hover:bg-red-700 dark:bg-red-500 dark:md:hover:bg-red-600"
+          className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700"
         >
           {isMobile ? "→" : "Nächste Woche >"}
         </button>
       </div>
 
-      {/* Tage in Grid */}
-      <div className={`grid ${isMobile ? "grid-cols-2" : "grid-cols-7"} gap-3 py-4`}>
-        {days.map((day) => (
-          <div
-            key={day}
-            className="p-3 border rounded-lg text-center 
-                       bg-white dark:bg-gray-900 shadow-sm relative 
-                       border-gray-200 dark:border-gray-700
-                       md:hover:border-white transition"
-          >
-            <div className="font-semibold text-red-700 dark:text-red-400">
-              {format(day, "EEE")}
-            </div>
-            <div className="mb-1 text-gray-700 dark:text-gray-300">
-              {format(day, "d")}
-            </div>
-            {shiftsForDay(day).map((shift) => (
-              <div
+      {/* Desktop: Tabelle */}
+      {!isMobile && (
+        <table className="w-full border-collapse rounded-lg overflow-hidden shadow-sm">
+          <thead className="bg-gray-100 dark:bg-gray-800 text-left">
+            <tr>
+              <th className="p-2">Datum</th>
+              <th className="p-2">Start</th>
+              <th className="p-2">Ende</th>
+              <th className="p-2">Pause</th>
+              <th className="p-2">Dauer</th>
+              <th className="p-2 text-right">Aktionen</th>
+            </tr>
+          </thead>
+          <tbody>
+            {shiftsForWeek.map((shift) => (
+              <tr
                 key={shift.id}
-                className="mb-1 border rounded p-1 
-                           bg-red-100 dark:bg-red-900 
-                           text-red-800 dark:text-red-300 relative"
+                className="border-t border-gray-200 dark:border-gray-700"
               >
-                <div>{format(parseISO(shift.start), "HH:mm")}</div>
-                <button
-                  onClick={() =>
-                    setMenuOpen(menuOpen === shift.id ? null : shift.id)
-                  }
-                  className="absolute top-1 right-1 text-gray-700 dark:text-gray-300"
-                >
-                  ⋮
-                </button>
-                {menuOpen === shift.id && (
-                  <div className="absolute top-6 right-1 bg-white dark:bg-gray-800 border rounded shadow-md z-10">
-                    <button
-                      onClick={() => handleEdit(shift)}
-                      className="block w-full text-left px-3 py-1 md:hover:bg-gray-100 md:dark:hover:bg-gray-700"
-                    >
-                      Bearbeiten
-                    </button>
-                    <button
-                      onClick={() => {
-                        onDelete(shift.id);
-                        setMenuOpen(null);
-                      }}
-                      className="block w-full text-left px-3 py-1 md:hover:bg-gray-100 md:dark:hover:bg-gray-700 text-red-600 dark:text-red-400"
-                    >
-                      Löschen
-                    </button>
-                  </div>
-                )}
-              </div>
+                <td className="p-2">{format(parseISO(shift.start), "dd.MM.yyyy")}</td>
+                <td className="p-2">{format(parseISO(shift.start), "HH:mm")}</td>
+                <td className="p-2">
+                  {shift.end ? format(parseISO(shift.end), "HH:mm") : "-"}
+                </td>
+                <td className="p-2">{shift.pauseMinutes || 0} min</td>
+                <td className="p-2">{shift.durationMinutes || "-"} min</td>
+                <td className="p-2 text-right flex gap-2 justify-end">
+                  <button
+                    onClick={() => handleEdit(shift)}
+                    className="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
+                  >
+                    <Edit2 size={16} />
+                  </button>
+                  <button
+                    onClick={() => onDelete(shift.id)}
+                    className="p-2 rounded hover:bg-red-100 dark:hover:bg-red-900 text-red-600"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </td>
+              </tr>
             ))}
-          </div>
-        ))}
-      </div>
+          </tbody>
+        </table>
+      )}
+
+      {/* Mobile: Karten */}
+      {isMobile && (
+        <div className="flex flex-col gap-3">
+          {shiftsForWeek.map((shift) => (
+            <div
+              key={shift.id}
+              className="p-4 rounded-xl shadow-md bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700"
+            >
+              <div className="font-bold text-red-600 dark:text-red-400 mb-1">
+                {format(parseISO(shift.start), "EEE, dd.MM.yyyy")}
+              </div>
+              <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+                <Clock size={16} /> {format(parseISO(shift.start), "HH:mm")} –{" "}
+                {shift.end ? format(parseISO(shift.end), "HH:mm") : "-"}
+              </div>
+              <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+                <Coffee size={16} /> {shift.pauseMinutes || 0} min Pause
+              </div>
+              <div className="mt-2 flex justify-end gap-3">
+                <button
+                  onClick={() => handleEdit(shift)}
+                  className="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
+                >
+                  <Edit2 size={16} />
+                </button>
+                <button
+                  onClick={() => onDelete(shift.id)}
+                  className="p-2 rounded hover:bg-red-100 dark:hover:bg-red-900 text-red-600"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Floating Action Button (nur Mobile) */}
+      {isMobile && (
+        <button
+          onClick={() => setModalOpen(true)}
+          className="fixed bottom-6 right-6 bg-red-600 text-white p-4 rounded-full shadow-lg hover:bg-red-700 md:hidden"
+        >
+          <Plus size={24} />
+        </button>
+      )}
 
       {/* Modal */}
       <AnimatePresence>
@@ -225,7 +229,7 @@ export default function ShiftList({ shifts, onUpdate, onDelete }) {
               transition={{ duration: 0.2 }}
             >
               <h3 className="text-lg font-bold text-red-700 dark:text-red-400 mb-4">
-                Alte Schicht eintragen
+                Schicht eintragen
               </h3>
               <div className="flex flex-col gap-2">
                 <label className="text-sm font-semibold">Startzeit</label>
@@ -235,10 +239,7 @@ export default function ShiftList({ shifts, onUpdate, onDelete }) {
                   onChange={(e) =>
                     setModalData({ ...modalData, start: e.target.value })
                   }
-                  className="border rounded px-2 py-1 
-                             bg-gray-50 dark:bg-gray-800 
-                             text-gray-800 dark:text-white 
-                             border-gray-300 dark:border-gray-700"
+                  className="border rounded px-2 py-1 bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-white border-gray-300 dark:border-gray-700"
                 />
 
                 <label className="text-sm font-semibold">Endzeit</label>
@@ -248,10 +249,7 @@ export default function ShiftList({ shifts, onUpdate, onDelete }) {
                   onChange={(e) =>
                     setModalData({ ...modalData, end: e.target.value })
                   }
-                  className="border rounded px-2 py-1 
-                             bg-gray-50 dark:bg-gray-800 
-                             text-gray-800 dark:text-white 
-                             border-gray-300 dark:border-gray-700"
+                  className="border rounded px-2 py-1 bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-white border-gray-300 dark:border-gray-700"
                 />
 
                 <label className="text-sm font-semibold">Pause (Minuten)</label>
@@ -262,25 +260,24 @@ export default function ShiftList({ shifts, onUpdate, onDelete }) {
                   onChange={(e) =>
                     setModalData({ ...modalData, pause: e.target.value })
                   }
-                  className="border rounded px-2 py-1 
-                             bg-gray-50 dark:bg-gray-800 
-                             text-gray-800 dark:text-white 
-                             border-gray-300 dark:border-gray-700"
+                  className="border rounded px-2 py-1 bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-white border-gray-300 dark:border-gray-700"
                 />
               </div>
 
-              <div className="flex justify-end gap-2 mt-4">
+              <div
+                className={`flex gap-2 mt-4 ${
+                  isMobile ? "flex-col" : "justify-end"
+                }`}
+              >
                 <button
                   onClick={() => setModalOpen(false)}
-                  className="px-4 py-2 rounded bg-gray-200 dark:bg-gray-700 
-                             md:hover:bg-gray-300 dark:md:hover:bg-gray-600"
+                  className="px-4 py-2 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 w-full md:w-auto"
                 >
                   Abbrechen
                 </button>
                 <button
                   onClick={saveOldShift}
-                  className="px-4 py-2 rounded bg-red-600 text-white 
-                             md:hover:bg-red-700 dark:bg-red-500 dark:md:hover:bg-red-600"
+                  className="px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 w-full md:w-auto"
                 >
                   Speichern
                 </button>

@@ -1,7 +1,7 @@
-// src/App.jsx
 import React, { useState, useEffect } from "react";
 import { startOfMonth } from "date-fns";
 import { AnimatePresence, motion } from "framer-motion";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 
 import { supabase } from "./supabaseClient";
 import useAuth from "./hooks/useAuth";
@@ -17,8 +17,9 @@ export default function App() {
   const user = useAuth();
   const [shifts, setShifts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activePage, setActivePage] = useState("home");
   const [currentMonthStart, setMonthStart] = useState(startOfMonth(new Date()));
+
+  const location = useLocation();
 
   const fetchShifts = async (userId) => {
     setLoading(true);
@@ -57,54 +58,74 @@ export default function App() {
   };
 
   if (!user) return <AuthPage />;
-  if (loading) return <div className="p-6 text-center text-gray-600 dark:text-gray-300">Lade Schichten…</div>;
+  if (loading)
+    return (
+      <div className="p-6 text-center text-gray-600 dark:text-gray-300">
+        Lade Schichten…
+      </div>
+    );
 
   return (
     <div className="min-h-screen bg-red-50 dark:bg-gray-950 text-gray-800 dark:text-gray-200 transition-colors duration-500">
-      <Navbar activePage={activePage} setActivePage={setActivePage} shifts={shifts} />
+      <Navbar />
 
       <div className="max-w-full sm:max-w-6xl mx-auto bg-white dark:bg-gray-900 shadow-lg rounded-lg p-4 sm:p-6 mt-4 overflow-hidden transition-colors duration-500">
         <AnimatePresence mode="wait">
-          {activePage === "home" && (
-            <motion.div
-              key="home"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-            >
-              <Home shifts={shifts} onUpdate={handleUpdate} />
-              <Stats shifts={shifts} />
-            </motion.div>
-          )}
-
-          {activePage === "kalender" && (
-            <motion.div
-              key="kalender"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-            >
-              <CalendarPage
-                shifts={shifts}
-                currentMonthStart={currentMonthStart}
-                setMonthStart={setMonthStart}
-              />
-            </motion.div>
-          )}
-
-          {activePage === "schichten" && (
-            <motion.div
-              key="schichten"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-            >
-              <ShiftPage shifts={shifts} onUpdate={handleUpdate} onDelete={handleDelete} />
-            </motion.div>
-          )}
+          <Routes location={location} key={location.pathname}>
+            <Route
+              path="/"
+              element={
+                <motion.div
+                  key="home"
+                  initial={{ opacity: 0, x: 100 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -100 }}
+                  transition={{ duration: 0.4 }}
+                >
+                  <Home shifts={shifts} onUpdate={handleUpdate} />
+                  <Stats shifts={shifts} />
+                </motion.div>
+              }
+            />
+            <Route
+              path="/kalender"
+              element={
+                <motion.div
+                  key="kalender"
+                  initial={{ opacity: 0, x: 100 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -100 }}
+                  transition={{ duration: 0.4 }}
+                >
+                  <CalendarPage
+                    shifts={shifts}
+                    currentMonthStart={currentMonthStart}
+                    setMonthStart={setMonthStart}
+                  />
+                </motion.div>
+              }
+            />
+            <Route
+              path="/schichten"
+              element={
+                <motion.div
+                  key="schichten"
+                  initial={{ opacity: 0, x: 100 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -100 }}
+                  transition={{ duration: 0.4 }}
+                >
+                  <ShiftPage
+                    shifts={shifts}
+                    onUpdate={handleUpdate}
+                    onDelete={handleDelete}
+                  />
+                </motion.div>
+              }
+            />
+            {/* Fallback → Redirect zu Home */}
+            <Route path="*" element={<Navigate to="/" />} />
+          </Routes>
         </AnimatePresence>
       </div>
     </div>

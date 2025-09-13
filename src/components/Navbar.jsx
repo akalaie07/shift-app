@@ -1,172 +1,255 @@
-// src/components/Navbar.jsx
-import React, { useState } from "react";
-import { Sun, Moon, Menu, X, LogOut } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState } from "react";
+import { NavLink } from "react-router-dom";
 import { supabase } from "../supabaseClient";
+import ThemeToggle from "./ThemeToggle";
+import { LogOut, Menu, X, Home, Calendar, List, Sun, Moon } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
-export default function Navbar({ activePage, setActivePage }) {
+export default function Navbar() {
+  const [loading, setLoading] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(
     document.documentElement.classList.contains("dark")
   );
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  const toggleDarkMode = () => {
-    document.documentElement.classList.toggle("dark");
-    setDarkMode(!darkMode);
-  };
-
-  const handleNavClick = (page) => {
-    setActivePage(page);
-    setSidebarOpen(false);
-  };
 
   const handleLogout = async () => {
+    setLoading(true);
     await supabase.auth.signOut();
-    window.location.reload();
+    setLoading(false);
+    setMenuOpen(false); // Sidebar schließen nach Logout
   };
 
+  const toggleTheme = () => {
+    setDarkMode(!darkMode);
+    if (darkMode) {
+      document.documentElement.classList.remove("dark");
+    } else {
+      document.documentElement.classList.add("dark");
+    }
+  };
+
+  const navLinkClasses =
+    "flex items-center gap-2 rounded-lg px-4 py-2 transition text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-800";
+  const activeClasses = "bg-red-600 text-white font-bold";
+
   return (
-    <nav className="bg-gray-100 dark:bg-gray-950 text-gray-900 dark:text-white px-4 py-3 flex justify-between items-center relative shadow-md">
-      {/* Left Section: Hamburger + Logo */}
-      <div className="flex items-center gap-3">
-        {/* Hamburger */}
+    <nav className="bg-gray-100 dark:bg-gray-950 shadow-sm relative z-50">
+      <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
+        {/* Mobile: Hamburger links */}
         <button
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="md:hidden p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-800 transition"
+          className="md:hidden p-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
+          onClick={() => setMenuOpen(true)}
         >
-          {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
+          <Menu size={22} />
         </button>
 
-        {/* Logo mit Quadrat im Light Mode */}
-        <div
-          className={`flex items-center justify-center h-10 w-10 rounded-lg transition 
-                      ${darkMode ? "" : "bg-red-600 shadow-lg"}`}
+        {/* Mobile: Logo zentriert */}
+        <NavLink
+          to="/"
+          className="md:hidden flex items-center absolute left-1/2 transform -translate-x-1/2"
+          onClick={() => setMenuOpen(false)}
         >
+          <div className="bg-red-600 p-2 rounded-lg shadow-md dark:hidden">
+            <img src="/freddy-logo-light.png" alt="Logo" className="h-8" />
+          </div>
           <img
-            src={darkMode ? "/freddy-logo-dark.png" : "/freddy-logo-light.png"}
+            src="/freddy-logo-dark.png"
             alt="Logo"
-            className={`h-8 transition ${darkMode ? "scale-110" : ""}`}
+            className="h-9 hidden dark:block"
           />
+        </NavLink>
+
+        {/* Mobile: ThemeToggle rechts */}
+        <div className="md:hidden">
+          <ThemeToggle />
+        </div>
+
+        {/* Desktop: Logo links */}
+        <NavLink to="/" className="hidden md:flex items-center">
+          <div className="bg-red-600 p-2 rounded-lg shadow-md dark:hidden">
+            <img src="/freddy-logo-light.png" alt="Logo" className="h-8" />
+          </div>
+          <img
+            src="/freddy-logo-dark.png"
+            alt="Logo"
+            className="h-9 hidden dark:block"
+          />
+        </NavLink>
+
+        {/* Desktop Navigation Mitte */}
+        <div className="hidden md:flex gap-6">
+          <NavLink
+            to="/"
+            end
+            className={({ isActive }) =>
+              `${navLinkClasses} ${isActive ? activeClasses : ""}`
+            }
+          >
+            <Home size={18} />
+            Home
+          </NavLink>
+          <NavLink
+            to="/schichten"
+            className={({ isActive }) =>
+              `${navLinkClasses} ${isActive ? activeClasses : ""}`
+            }
+          >
+            <List size={18} />
+            Schichten
+          </NavLink>
+          <NavLink
+            to="/kalender"
+            className={({ isActive }) =>
+              `${navLinkClasses} ${isActive ? activeClasses : ""}`
+            }
+          >
+            <Calendar size={18} />
+            Kalender
+          </NavLink>
+        </div>
+
+        {/* Desktop Controls */}
+        <div className="hidden md:flex items-center gap-3">
+          {/* Normaler Toggle */}
+
+          {/* Neuer animierter Switch */}
+          <motion.button
+            onClick={toggleTheme}
+            className="p-3 rounded-full bg-gray-200 dark:bg-gray-800 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-700"
+            whileTap={{ scale: 0.9 }}
+          >
+            <motion.div
+              key={darkMode ? "sun" : "moon"}
+              initial={{ rotate: -90, opacity: 0, scale: 0.5 }}
+              animate={{ rotate: 0, opacity: 1, scale: 1 }}
+              exit={{ rotate: 90, opacity: 0, scale: 0.5 }}
+              transition={{ duration: 0.4 }}
+            >
+              {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+            </motion.div>
+          </motion.button>
+
+          {/* Logout */}
+          <button
+            onClick={handleLogout}
+            disabled={loading}
+            className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg shadow-md transition disabled:opacity-50"
+          >
+            <LogOut size={18} />
+            {loading ? "…" : "Abmelden"}
+          </button>
         </div>
       </div>
 
-      {/* Desktop Nav */}
-      <div className="hidden md:flex space-x-4">
-        {["home", "schichten", "kalender"].map((page) => (
-          <button
-            key={page}
-            onClick={() => handleNavClick(page)}
-            className={`px-3 py-2 rounded-md transition ${
-              activePage === page
-                ? "bg-red-600 text-white"
-                : "text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
-            }`}
-          >
-            {page.charAt(0).toUpperCase() + page.slice(1)}
-          </button>
-        ))}
-      </div>
-
-      {/* Right Section: Darkmode Toggle (immer sichtbar) + Logout nur Desktop */}
-      <div className="flex items-center gap-3">
-        {/* Theme Toggle (mobil + desktop) */}
-        <button
-          onClick={toggleDarkMode}
-          className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-800 transition"
-        >
-          {darkMode ? <Sun size={20} /> : <Moon size={20} />}
-        </button>
-
-        {/* Logout nur auf Desktop */}
-        <button
-          onClick={handleLogout}
-          className="hidden md:flex items-center gap-2 px-3 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 transition"
-        >
-          <LogOut size={18} /> Abmelden
-        </button>
-      </div>
-
-      {/* Sidebar (Mobile, von links) */}
+      {/* Sidebar mit Animation */}
       <AnimatePresence>
-        {sidebarOpen && (
+        {menuOpen && (
           <>
             {/* Overlay */}
             <motion.div
-              key="overlay"
+              className="fixed inset-0 bg-black bg-opacity-40 z-40"
               initial={{ opacity: 0 }}
-              animate={{ opacity: 0.5 }}
+              animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.3 }}
-              className="fixed inset-0 bg-black z-40"
-              onClick={() => setSidebarOpen(false)}
+              onClick={() => setMenuOpen(false)}
             />
 
             {/* Sidebar */}
             <motion.div
-              key="sidebar"
+              className="fixed top-0 left-0 h-full w-64 bg-gray-100 dark:bg-gray-950 shadow-lg z-50 flex flex-col"
               initial={{ x: "-100%" }}
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
-              transition={{ duration: 0.3 }}
-              className="fixed top-0 left-0 w-72 h-full bg-gray-100 dark:bg-gray-950 shadow-2xl z-50 flex flex-col"
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
             >
-              {/* Header */}
-              <div className="flex items-center justify-between p-4 border-b border-gray-300 dark:border-gray-700">
-                <div
-                  className={`flex items-center justify-center h-10 w-10 rounded-lg transition 
-                              ${darkMode ? "" : "bg-red-600 shadow-lg"}`}
-                >
+              {/* Close Button */}
+              <button
+                className="absolute top-4 right-4 p-2 text-gray-600 dark:text-gray-300 hover:text-red-600"
+                onClick={() => setMenuOpen(false)}
+              >
+                <X size={22} />
+              </button>
+
+              {/* Logo oben */}
+              <div className="flex justify-center mt-6 mb-6">
+                <div className="bg-red-600 p-2 rounded-lg shadow-md dark:hidden">
                   <img
-                    src={darkMode ? "/freddy-logo-dark.png" : "/freddy-logo-light.png"}
+                    src="/freddy-logo-light.png"
                     alt="Logo"
-                    className={`h-8 transition ${darkMode ? "scale-110" : ""}`}
+                    className="h-10"
                   />
                 </div>
-                <button
-                  onClick={() => setSidebarOpen(false)}
-                  className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-800 transition"
-                >
-                  <X size={24} />
-                </button>
+                <img
+                  src="/freddy-logo-dark.png"
+                  alt="Logo"
+                  className="h-14 hidden dark:block"
+                />
               </div>
 
-              {/* Nav Items */}
-              <div className="flex-1 flex flex-col gap-2 p-6">
-                {["home", "schichten", "kalender"].map((page) => (
-                  <button
-                    key={page}
-                    onClick={() => handleNavClick(page)}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-lg text-lg font-medium transition-all
-                      ${
-                        activePage === page
-                          ? "bg-red-600 text-white shadow-lg"
-                          : "text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
-                      }`}
-                  >
-                    {page === "home" && "🏠"}
-                    {page === "schichten" && "🕒"}
-                    {page === "kalender" && "📅"}
-                    {page.charAt(0).toUpperCase() + page.slice(1)}
-                  </button>
-                ))}
+              {/* Divider */}
+              <div className="border-t border-gray-300 dark:border-gray-700 mb-4" />
+
+              {/* Navigation */}
+              <div className="flex flex-col gap-2 px-2">
+                <NavLink
+                  to="/"
+                  end
+                  onClick={() => setMenuOpen(false)}
+                  className={({ isActive }) =>
+                    `${navLinkClasses} ${isActive ? activeClasses : ""}`
+                  }
+                >
+                  <Home size={18} />
+                  Home
+                </NavLink>
+                <NavLink
+                  to="/schichten"
+                  onClick={() => setMenuOpen(false)}
+                  className={({ isActive }) =>
+                    `${navLinkClasses} ${isActive ? activeClasses : ""}`
+                  }
+                >
+                  <List size={18} />
+                  Schichten
+                </NavLink>
+                <NavLink
+                  to="/kalender"
+                  onClick={() => setMenuOpen(false)}
+                  className={({ isActive }) =>
+                    `${navLinkClasses} ${isActive ? activeClasses : ""}`
+                  }
+                >
+                  <Calendar size={18} />
+                  Kalender
+                </NavLink>
               </div>
 
-              {/* Footer mit Theme Switch + Logout */}
-              <div className="p-6 border-t border-gray-300 dark:border-gray-700 flex flex-col gap-3">
+              {/* Divider */}
+              <div className="border-t border-gray-300 dark:border-gray-700 mt-4 mb-4" />
+
+              {/* ThemeToggle normal in Sidebar */}
+              <div className="px-4">
                 <button
-                  onClick={toggleDarkMode}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg 
-                            bg-gray-200 dark:bg-gray-800 text-gray-900 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-700 transition"
+                  onClick={toggleTheme}
+                  className="w-full flex items-center justify-center gap-2 p-2 rounded-lg bg-gray-200 dark:bg-gray-800 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-700"
                 >
-                  {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+                  {darkMode ? <Sun size={18} /> : <Moon size={18} />}
                   {darkMode ? "Light Mode" : "Dark Mode"}
                 </button>
+              </div>
+
+              {/* Divider */}
+              <div className="border-t border-gray-300 dark:border-gray-700 mt-4 mb-4" />
+
+              {/* Controls unten */}
+              <div className="p-4 mt-auto">
                 <button
                   onClick={handleLogout}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg 
-                            bg-red-600 text-white hover:bg-red-700 transition"
+                  disabled={loading}
+                  className="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg shadow-md transition disabled:opacity-50"
                 >
-                  <LogOut size={18} /> Abmelden
+                  <LogOut size={18} />
+                  {loading ? "…" : "Abmelden"}
                 </button>
               </div>
             </motion.div>
