@@ -1,62 +1,76 @@
-// src/pages/AuthPage.jsx
 import { useState } from "react";
 import { supabase } from "../supabaseClient";
+import { motion } from "framer-motion";
 
 export default function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [isLogin, setIsLogin] = useState(true);
   const [message, setMessage] = useState("");
 
-  const handleSubmit = async (e) => {
+  const handleAuth = async (e) => {
     e.preventDefault();
     setLoading(true);
     setMessage("");
 
-    let error;
-    if (isLogin) {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      error = signInError;
-    } else {
-      const { error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-      });
-      error = signUpError;
-      if (!error) {
-        setMessage("✅ Bestätigungslink wurde an deine E-Mail gesendet!");
+    try {
+      if (isLogin) {
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (error) throw error;
+        setMessage("✅ Erfolgreich eingeloggt!");
+      } else {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+        });
+        if (error) throw error;
+        setMessage("📩 Bitte bestätige deine E-Mail, um loszulegen.");
       }
+    } catch (error) {
+      setMessage(`❌ ${error.message}`);
+    } finally {
+      setLoading(false);
     }
-
-    if (error) setMessage(`❌ ${error.message}`);
-    setLoading(false);
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-700 via-red-600 to-red-400">
-      <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center">
-        <img src="/freddy-logo.png" alt="Freddy Fresh Logo" className="mx-auto h-16 mb-6" />
-        <h1 className="text-3xl font-bold text-red-700 mb-2">
-          {isLogin ? "Willkommen zurück!" : "Konto erstellen"}
-        </h1>
-        <p className="text-gray-600 mb-6">
-          {isLogin
-            ? "Melde dich mit deinem Account an."
-            : "Registriere dich und werde Teil von Freddy Fresh."}
-        </p>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-600 via-red-500 to-red-700 dark:from-gray-900 dark:via-gray-800 dark:to-black transition-colors duration-500">
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6 }}
+        className="bg-white dark:bg-gray-900 p-8 rounded-2xl shadow-xl w-full max-w-md border border-gray-100 dark:border-gray-700"
+      >
+        {/* Logo + Heading */}
+        <div className="flex flex-col items-center mb-6">
+          <img
+            src="/freddy-logo.png"
+            alt="Freddy Fresh Logo"
+            className="h-20 mb-4"
+          />
+          <h1 className="text-2xl font-bold text-red-600 dark:text-red-400">
+            {isLogin ? "Willkommen zurück!" : "Konto erstellen"}
+          </h1>
+          <p className="text-gray-500 dark:text-gray-400 text-sm">
+            {isLogin
+              ? "Melde dich mit deinem Account an."
+              : "Registriere dich für den Schichtplaner."}
+          </p>
+        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Formular */}
+        <form onSubmit={handleAuth} className="space-y-4">
           <input
             type="email"
             placeholder="E-Mail-Adresse"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-red-500"
+            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-400 outline-none bg-gray-50 dark:bg-gray-800 dark:text-white dark:border-gray-700"
           />
           <input
             type="password"
@@ -64,43 +78,51 @@ export default function AuthPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-red-500"
+            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-400 outline-none bg-gray-50 dark:bg-gray-800 dark:text-white dark:border-gray-700"
           />
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 rounded-lg transition"
+            className="w-full py-2 rounded-lg bg-red-600 text-white font-bold hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 transition disabled:opacity-50"
           >
-            {loading ? "Bitte warten…" : isLogin ? "Login" : "Registrieren"}
+            {loading ? "Lädt..." : isLogin ? "Login" : "Registrieren"}
           </button>
         </form>
 
-        {message && <p className="mt-4 text-sm">{message}</p>}
+        {/* Message */}
+        {message && (
+          <p className="mt-4 text-center text-sm text-gray-600 dark:text-gray-400">
+            {message}
+          </p>
+        )}
 
-        <div className="mt-6 text-gray-600 text-sm">
+        {/* Umschalten */}
+        <div className="mt-6 text-center text-sm">
           {isLogin ? (
-            <>
-              Kein Account?{" "}
+            <p className="text-gray-600 dark:text-gray-400">
+              Noch kein Account?{" "}
               <button
+                type="button"
+                className="text-red-600 dark:text-red-400 font-bold"
                 onClick={() => setIsLogin(false)}
-                className="text-red-600 hover:underline font-semibold"
               >
                 Registrieren
               </button>
-            </>
+            </p>
           ) : (
-            <>
+            <p className="text-gray-600 dark:text-gray-400">
               Schon registriert?{" "}
               <button
+                type="button"
+                className="text-red-600 dark:text-red-400 font-bold"
                 onClick={() => setIsLogin(true)}
-                className="text-red-600 hover:underline font-semibold"
               >
                 Login
               </button>
-            </>
+            </p>
           )}
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }
