@@ -164,7 +164,7 @@ export default function Stats({ shifts }) {
       <div className="bg-white dark:bg-gray-900 p-4 rounded shadow mt-4 h-64 flex relative 
                       border border-gray-200 dark:border-gray-700
                       text-gray-800 dark:text-gray-200 transition-colors duration-500">
-        <div className="flex items-end gap-2 flex-1 h-full z-10 ml-8">
+        <div className="flex items-end gap-2 flex-1 h-full z-10">
           <AnimatePresence>
             {chartData.map((d, idx) => {
               const barHeight = Math.round((d.minutes / maxMinutes) * containerHeight);
@@ -182,12 +182,12 @@ export default function Stats({ shifts }) {
                   transition={{ duration: 0.5 }}
                   className="flex-1 rounded-t relative"
                   style={{ backgroundColor: bgColor, cursor: "pointer" }}
-                  whileHover={isMobile ? {} : { scale: 1.05 }}
+                  whileHover={{ scale: 1.05 }}
                   title={d.minutes > 0 ? `${Math.floor(d.minutes / 60)}h ${d.minutes % 60}m` : "Keine Schicht"}
                 >
                   {d.minutes > 0 && (
                     <div className="absolute -top-5 left-1/2 -translate-x-1/2 text-xs 
-                                    text-gray-700 dark:text-gray-300 font-semibold">
+                                    text-gray-700 dark:text-gray-300 font-semibold whitespace-nowrap">
                       {formatMinutes(d.minutes)}
                     </div>
                   )}
