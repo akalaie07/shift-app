@@ -1,5 +1,5 @@
 // src/ShiftList.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   startOfWeek,
@@ -11,6 +11,7 @@ import {
   parseISO,
   isSameDay,
 } from "date-fns";
+import useIsMobile from "../hooks/useIsMobile";
 
 export default function ShiftList({ shifts, onUpdate, onDelete }) {
   const [newShiftTime, setNewShiftTime] = useState("");
@@ -18,21 +19,14 @@ export default function ShiftList({ shifts, onUpdate, onDelete }) {
     startOfWeek(new Date(), { weekStartsOn: 1 })
   );
   const [menuOpen, setMenuOpen] = useState(null);
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const isMobile = useIsMobile();
 
-  // Modal State
   const [modalOpen, setModalOpen] = useState(false);
   const [modalData, setModalData] = useState({
     start: "",
     end: "",
     pause: 0,
   });
-
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
 
   const openOldShiftModal = (defaultDate) => {
     setModalData({
@@ -47,7 +41,10 @@ export default function ShiftList({ shifts, onUpdate, onDelete }) {
     const start = new Date(modalData.start);
     const end = new Date(modalData.end);
     const pauseMinutes = parseInt(modalData.pause) || 0;
-    const durationMinutes = Math.max(Math.floor((end - start) / 60000) - pauseMinutes, 0);
+    const durationMinutes = Math.max(
+      Math.floor((end - start) / 60000) - pauseMinutes,
+      0
+    );
 
     const oldShift = {
       id: `${Date.now()}-${Math.floor(Math.random() * 10000)}`,
@@ -99,58 +96,12 @@ export default function ShiftList({ shifts, onUpdate, onDelete }) {
 
   const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
   const days = eachDayOfInterval({ start: currentWeekStart, end: weekEnd });
-  const shiftsForDay = (day) => shifts.filter((s) => isSameDay(parseISO(s.start), day));
-
-  const firstRow = isMobile ? days.slice(0, 4) : days;
-  const secondRow = isMobile ? days.slice(4, 7) : [];
-
-  const renderDays = (dayArray) =>
-    dayArray.map((day) => (
-      <div
-        key={day}
-        className="flex-shrink-0 w-28 p-2 border rounded text-center bg-white shadow-sm relative"
-      >
-        <div className="font-semibold text-red-700">{format(day, "EEE")}</div>
-        <div className="mb-1">{format(day, "d")}</div>
-        {shiftsForDay(day).map((shift) => (
-          <div
-            key={shift.id}
-            className="mb-1 border rounded p-1 bg-red-100 text-red-800 relative"
-          >
-            <div>{format(parseISO(shift.start), "HH:mm")}</div>
-            <button
-              onClick={() => setMenuOpen(menuOpen === shift.id ? null : shift.id)}
-              className="absolute top-1 right-1 text-gray-700"
-            >
-              ⋮
-            </button>
-            {menuOpen === shift.id && (
-              <div className="absolute top-6 right-1 bg-white border rounded shadow-md z-10">
-                <button
-                  onClick={() => handleEdit(shift)}
-                  className="block w-full text-left px-3 py-1 hover:bg-gray-100"
-                >
-                  Bearbeiten
-                </button>
-                <button
-                  onClick={() => {
-                    onDelete(shift.id);
-                    setMenuOpen(null);
-                  }}
-                  className="block w-full text-left px-3 py-1 hover:bg-gray-100 text-red-600"
-                >
-                  Löschen
-                </button>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-    ));
+  const shiftsForDay = (day) =>
+    shifts.filter((s) => isSameDay(parseISO(s.start), day));
 
   return (
     <div id="schichten">
-      <h2 className="text-2xl font-bold text-red-700 mb-4 text-center">
+      <h2 className="text-2xl font-bold text-red-700 dark:text-red-400 mb-4 text-center">
         Schichten verwalten
       </h2>
 
@@ -160,51 +111,103 @@ export default function ShiftList({ shifts, onUpdate, onDelete }) {
           type="datetime-local"
           value={newShiftTime}
           onChange={(e) => setNewShiftTime(e.target.value)}
-          className="border rounded px-2 py-1 bg-[color:var(--card-bg)] text-[color:var(--text)]"
+          className="border rounded px-2 py-1 
+                     bg-gray-50 dark:bg-gray-800 
+                     text-gray-800 dark:text-white 
+                     border-gray-300 dark:border-gray-700"
         />
         <button
           onClick={handleCreate}
-          className="px-4 py-1 rounded transition"
-          style={{
-            background: "var(--primary)",
-            color: "var(--nav-text)"
-          }}
-          onMouseEnter={(e) => e.currentTarget.style.background = "var(--primary-700)"}
-          onMouseLeave={(e) => e.currentTarget.style.background = "var(--primary)"}
+          className="px-4 py-1 rounded transition 
+                     bg-red-600 text-white 
+                     md:hover:bg-red-700 dark:bg-red-500 dark:md:hover:bg-red-600"
         >
           Hinzufügen
         </button>
       </div>
 
-
+      {/* Navigation */}
       <div className="flex justify-between mb-2 flex-wrap gap-2">
         <button
           onClick={() => setWeekStart(subWeeks(currentWeekStart, 1))}
-          className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700"
+          className="bg-red-600 text-white px-3 py-1 rounded 
+                     md:hover:bg-red-700 dark:bg-red-500 dark:md:hover:bg-red-600"
         >
           {isMobile ? "←" : "< Vorherige Woche"}
         </button>
         {!isMobile && (
-          <span className="font-semibold text-red-700">
-            {format(currentWeekStart, "dd.MM.yyyy")} - {format(weekEnd, "dd.MM.yyyy")}
+          <span className="font-semibold text-red-700 dark:text-red-400">
+            {format(currentWeekStart, "dd.MM.yyyy")} -{" "}
+            {format(weekEnd, "dd.MM.yyyy")}
           </span>
         )}
         <button
           onClick={() => setWeekStart(addWeeks(currentWeekStart, 1))}
-          className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700"
+          className="bg-red-600 text-white px-3 py-1 rounded 
+                     md:hover:bg-red-700 dark:bg-red-500 dark:md:hover:bg-red-600"
         >
           {isMobile ? "→" : "Nächste Woche >"}
         </button>
       </div>
 
-      <div className="flex flex-col gap-2 py-2">
-        <div className="flex justify-center gap-2 flex-wrap">{renderDays(firstRow)}</div>
-        {secondRow.length > 0 && (
-          <div className="flex justify-center gap-2 flex-wrap">{renderDays(secondRow)}</div>
-        )}
+      {/* Tage in Grid */}
+      <div className={`grid ${isMobile ? "grid-cols-2" : "grid-cols-7"} gap-3 py-4`}>
+        {days.map((day) => (
+          <div
+            key={day}
+            className="p-3 border rounded-lg text-center 
+                       bg-white dark:bg-gray-900 shadow-sm relative 
+                       border-gray-200 dark:border-gray-700
+                       md:hover:border-white transition"
+          >
+            <div className="font-semibold text-red-700 dark:text-red-400">
+              {format(day, "EEE")}
+            </div>
+            <div className="mb-1 text-gray-700 dark:text-gray-300">
+              {format(day, "d")}
+            </div>
+            {shiftsForDay(day).map((shift) => (
+              <div
+                key={shift.id}
+                className="mb-1 border rounded p-1 
+                           bg-red-100 dark:bg-red-900 
+                           text-red-800 dark:text-red-300 relative"
+              >
+                <div>{format(parseISO(shift.start), "HH:mm")}</div>
+                <button
+                  onClick={() =>
+                    setMenuOpen(menuOpen === shift.id ? null : shift.id)
+                  }
+                  className="absolute top-1 right-1 text-gray-700 dark:text-gray-300"
+                >
+                  ⋮
+                </button>
+                {menuOpen === shift.id && (
+                  <div className="absolute top-6 right-1 bg-white dark:bg-gray-800 border rounded shadow-md z-10">
+                    <button
+                      onClick={() => handleEdit(shift)}
+                      className="block w-full text-left px-3 py-1 md:hover:bg-gray-100 md:dark:hover:bg-gray-700"
+                    >
+                      Bearbeiten
+                    </button>
+                    <button
+                      onClick={() => {
+                        onDelete(shift.id);
+                        setMenuOpen(null);
+                      }}
+                      className="block w-full text-left px-3 py-1 md:hover:bg-gray-100 md:dark:hover:bg-gray-700 text-red-600 dark:text-red-400"
+                    >
+                      Löschen
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        ))}
       </div>
 
-      {/* Animated Modal für alte Schicht */}
+      {/* Modal */}
       <AnimatePresence>
         {modalOpen && (
           <motion.div
@@ -215,28 +218,40 @@ export default function ShiftList({ shifts, onUpdate, onDelete }) {
             exit={{ opacity: 0 }}
           >
             <motion.div
-              className="bg-white rounded-xl p-6 w-80 shadow-lg"
+              className="bg-white dark:bg-gray-900 rounded-xl p-6 w-80 shadow-lg border border-gray-200 dark:border-gray-700"
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.8, opacity: 0 }}
               transition={{ duration: 0.2 }}
             >
-              <h3 className="text-lg font-bold text-red-700 mb-4">Alte Schicht eintragen</h3>
+              <h3 className="text-lg font-bold text-red-700 dark:text-red-400 mb-4">
+                Alte Schicht eintragen
+              </h3>
               <div className="flex flex-col gap-2">
                 <label className="text-sm font-semibold">Startzeit</label>
                 <input
                   type="datetime-local"
                   value={modalData.start}
-                  onChange={(e) => setModalData({ ...modalData, start: e.target.value })}
-                  className="border rounded px-2 py-1"
+                  onChange={(e) =>
+                    setModalData({ ...modalData, start: e.target.value })
+                  }
+                  className="border rounded px-2 py-1 
+                             bg-gray-50 dark:bg-gray-800 
+                             text-gray-800 dark:text-white 
+                             border-gray-300 dark:border-gray-700"
                 />
 
                 <label className="text-sm font-semibold">Endzeit</label>
                 <input
                   type="datetime-local"
                   value={modalData.end}
-                  onChange={(e) => setModalData({ ...modalData, end: e.target.value })}
-                  className="border rounded px-2 py-1"
+                  onChange={(e) =>
+                    setModalData({ ...modalData, end: e.target.value })
+                  }
+                  className="border rounded px-2 py-1 
+                             bg-gray-50 dark:bg-gray-800 
+                             text-gray-800 dark:text-white 
+                             border-gray-300 dark:border-gray-700"
                 />
 
                 <label className="text-sm font-semibold">Pause (Minuten)</label>
@@ -244,21 +259,28 @@ export default function ShiftList({ shifts, onUpdate, onDelete }) {
                   type="number"
                   min="0"
                   value={modalData.pause}
-                  onChange={(e) => setModalData({ ...modalData, pause: e.target.value })}
-                  className="border rounded px-2 py-1"
+                  onChange={(e) =>
+                    setModalData({ ...modalData, pause: e.target.value })
+                  }
+                  className="border rounded px-2 py-1 
+                             bg-gray-50 dark:bg-gray-800 
+                             text-gray-800 dark:text-white 
+                             border-gray-300 dark:border-gray-700"
                 />
               </div>
 
               <div className="flex justify-end gap-2 mt-4">
                 <button
                   onClick={() => setModalOpen(false)}
-                  className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300"
+                  className="px-4 py-2 rounded bg-gray-200 dark:bg-gray-700 
+                             md:hover:bg-gray-300 dark:md:hover:bg-gray-600"
                 >
                   Abbrechen
                 </button>
                 <button
                   onClick={saveOldShift}
-                  className="px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700"
+                  className="px-4 py-2 rounded bg-red-600 text-white 
+                             md:hover:bg-red-700 dark:bg-red-500 dark:md:hover:bg-red-600"
                 >
                   Speichern
                 </button>

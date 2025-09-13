@@ -1,88 +1,146 @@
-// src/Navbar.jsx
-import React, { useState, useEffect } from "react";
-import { Menu, X } from "lucide-react"; // Icons
+// src/components/Navbar.jsx
+import React, { useState } from "react";
+import { Sun, Moon, Menu, X } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function Navbar({ activePage, setActivePage }) {
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [theme, setTheme] = useState(localStorage.getItem("theme") || "light");
-
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener("resize", handleResize);
-
-    // 🔎 Beobachte Dark/Light Wechsel
-    const observer = new MutationObserver(() => {
-      const isDark = document.documentElement.classList.contains("dark");
-      setTheme(isDark ? "dark" : "light");
-    });
-
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["class"],
-    });
-
-    return () => {
-      window.removeEventListener("resize", handleResize);
-      observer.disconnect();
-    };
-  }, []);
-
-  const toggleMenu = () => setMenuOpen(!menuOpen);
-
-  const NavLink = ({ page, label }) => (
-    <button
-      onClick={() => {
-        setActivePage(page);
-        setMenuOpen(false); // Menü schließen nach Klick
-      }}
-      className={`px-2 py-1 rounded ${
-        activePage === page
-          ? "bg-red-900 text-white"
-          : "hover:bg-red-800 hover:text-white"
-      }`}
-    >
-      {label}
-    </button>
+  const [darkMode, setDarkMode] = useState(
+    document.documentElement.classList.contains("dark")
   );
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const toggleDarkMode = () => {
+    document.documentElement.classList.toggle("dark");
+    setDarkMode(!darkMode);
+  };
+
+  const handleNavClick = (page) => {
+    setActivePage(page);
+    setSidebarOpen(false);
+  };
 
   return (
-    <nav className="bg-red-700 text-white px-4 py-2 shadow relative">
-      <div className="flex items-center justify-between">
-        {/* Desktop-Links */}
-        {!isMobile && (
-          <div className="flex gap-4">
-            <NavLink page="home" label="Home" />
-            <NavLink page="schichten" label="Schichten" />
-            <NavLink page="kalender" label="Kalender" />
-          </div>
-        )}
+    <nav className="bg-gray-100 dark:bg-gray-950 text-gray-900 dark:text-white px-4 py-3 flex justify-between items-center relative shadow-md">
+      {/* Left Section: Hamburger + Logo */}
+      <div className="flex items-center gap-3">
+        {/* Hamburger */}
+        <button
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="md:hidden p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-800 transition"
+        >
+          {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
 
-        {/* Logo in der Mitte */}
-        <div className="absolute left-1/2 transform -translate-x-1/2">
-          <img
-            src={theme === "dark" ? "/freddy-logo-dark.png" : "/freddy-logo-light.png"}
-            alt="Logo"
-            className="h-10 object-contain transition duration-300"
-          />
-        </div>
-
-        {/* Mobile: Hamburger Menü */}
-        {isMobile && (
-          <button onClick={toggleMenu} className="ml-auto">
-            {menuOpen ? <X size={28} /> : <Menu size={28} />}
-          </button>
-        )}
+        {/* Logo */}
+        <img
+          src={darkMode ? "/freddy-logo-dark.png" : "/freddy-logo-light.png"}
+          alt="Logo"
+          className="h-8"
+        />
       </div>
 
-      {/* Mobile-Menü */}
-      {isMobile && menuOpen && (
-        <div className="flex flex-col gap-2 mt-2 bg-red-600 rounded-lg p-3">
-          <NavLink page="home" label="Home" />
-          <NavLink page="schichten" label="Schichten" />
-          <NavLink page="kalender" label="Kalender" />
-        </div>
-      )}
+      {/* Desktop Nav */}
+      <div className="hidden md:flex space-x-4">
+        {["home", "schichten", "kalender"].map((page) => (
+          <button
+            key={page}
+            onClick={() => handleNavClick(page)}
+            className={`px-3 py-2 rounded-md transition ${
+              activePage === page
+                ? "bg-red-600 text-white"
+                : "text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
+            }`}
+          >
+            {page.charAt(0).toUpperCase() + page.slice(1)}
+          </button>
+        ))}
+      </div>
+
+      {/* Right: Darkmode Toggle */}
+      <div>
+        <button
+          onClick={toggleDarkMode}
+          className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-800 transition"
+        >
+          {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+        </button>
+      </div>
+
+      {/* Sidebar (Mobile, von links) */}
+      <AnimatePresence>
+        {sidebarOpen && (
+          <>
+            {/* Overlay */}
+            <motion.div
+              key="overlay"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.5 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              className="fixed inset-0 bg-black z-40"
+              onClick={() => setSidebarOpen(false)}
+            />
+
+            {/* Sidebar */}
+            <motion.div
+              key="sidebar"
+              initial={{ x: "-100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "-100%" }}
+              transition={{ duration: 0.3 }}
+              className="fixed top-0 left-0 w-72 h-full bg-gray-100 dark:bg-gray-950 shadow-2xl z-50 flex flex-col"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between p-4 border-b border-gray-300 dark:border-gray-700">
+                <img
+                  src={darkMode ? "/freddy-logo-dark.png" : "/freddy-logo-light.png"}
+                  alt="Logo"
+                  className="h-8"
+                />
+                <button
+                  onClick={() => setSidebarOpen(false)}
+                  className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-800 transition"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+
+              {/* Nav Items */}
+              <div className="flex-1 flex flex-col gap-2 p-6">
+                {["home", "schichten", "kalender"].map((page) => (
+                  <button
+                    key={page}
+                    onClick={() => handleNavClick(page)}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg text-lg font-medium transition-all
+                      ${
+                        activePage === page
+                          ? "bg-red-600 text-white shadow-lg"
+                          : "text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
+                      }`}
+                  >
+                    {page === "home" && "🏠"}
+                    {page === "schichten" && "🕒"}
+                    {page === "kalender" && "📅"}
+                    {page.charAt(0).toUpperCase() + page.slice(1)}
+                  </button>
+                ))}
+              </div>
+
+              {/* Footer mit Theme Switch */}
+              <div className="p-6 border-t border-gray-300 dark:border-gray-700">
+                <button
+                  onClick={toggleDarkMode}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg 
+                            bg-gray-200 dark:bg-gray-800 text-gray-900 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-700 transition"
+                >
+                  {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+                  {darkMode ? "Light Mode" : "Dark Mode"}
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </nav>
   );
 }

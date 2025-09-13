@@ -1,5 +1,7 @@
+// src/utils/formatMinutes.js
 export default function formatMinutes(mins) {
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
-  return `${h}h ${m}min`;
+  const m = Math.max(0, Math.round(Number(mins) || 0));
+  const h = Math.floor(m / 60);
+  const r = m % 60;
+  return `${h}h ${r}min`;
 }

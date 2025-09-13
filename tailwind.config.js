@@ -1,16 +1,12 @@
-/** @type {import('tailwindcss').Config} */
+// tailwind.config.js
 module.exports = {
-  darkMode: "class", // <--- HINZUGEFÜGT
+  darkMode: "class", // <--- WICHTIG für Toggle Dark/Light
   content: [
     "./index.html",
     "./src/**/*.{js,jsx,ts,tsx}",
   ],
   theme: {
-    extend: {
-      fontFamily: {
-        sans: ['"Quicksand"', 'ui-sans-serif', 'system-ui'],
-      },
-    },
+    extend: {},
   },
   plugins: [],
-}
+};

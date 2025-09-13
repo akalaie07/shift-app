@@ -1,5 +1,5 @@
 // src/Calendar.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   startOfWeek,
@@ -14,15 +14,11 @@ import {
   format,
 } from "date-fns";
 
-export default function Calendar({ shifts, currentMonthStart, setMonthStart }) {
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [showLegend, setShowLegend] = useState(false);
+import useIsMobile from "../hooks/useIsMobile";
 
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
+export default function Calendar({ shifts, currentMonthStart, setMonthStart }) {
+  const isMobile = useIsMobile();
+  const [showLegend, setShowLegend] = useState(false);
 
   const monthStart = startOfMonth(currentMonthStart);
   const monthEnd = endOfMonth(currentMonthStart);
@@ -33,7 +29,6 @@ export default function Calendar({ shifts, currentMonthStart, setMonthStart }) {
 
   const now = new Date();
 
-  // Filter die nächste kommende Schicht
   const futureShifts = shifts
     .filter(s => !s.end && parseISO(s.start) > now)
     .sort((a, b) => new Date(a.start) - new Date(b.start));
@@ -44,21 +39,21 @@ export default function Calendar({ shifts, currentMonthStart, setMonthStart }) {
 
   return (
     <div className="mb-6 overflow-hidden relative">
-      {/* Monatsnavigation + Info */}
+      {/* Monatsnavigation */}
       <div className="flex justify-between items-center mb-4 flex-wrap gap-2 relative">
         <button
           onClick={() => setMonthStart(addDays(monthStart, -1))}
-          className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+          className="bg-red-600 text-white px-4 py-2 rounded md:hover:bg-red-700"
         >
           {isMobile ? "←" : "← Vorheriger Monat"}
         </button>
         <div className="flex items-center gap-2">
-          <span className="text-xl font-semibold text-red-700">
+          <span className="text-xl font-semibold text-red-700 dark:text-red-400">
             {format(monthStart, "MMMM yyyy")}
           </span>
           <button
             onClick={() => setShowLegend(!showLegend)}
-            className="text-gray-500 hover:text-gray-800"
+            className="text-gray-500 dark:text-gray-300 md:hover:text-gray-800 dark:md:hover:text-gray-100"
             title="Legende anzeigen"
           >
             ℹ️
@@ -66,22 +61,23 @@ export default function Calendar({ shifts, currentMonthStart, setMonthStart }) {
         </div>
         <button
           onClick={() => setMonthStart(addDays(monthEnd, 1))}
-          className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+          className="bg-red-600 text-white px-4 py-2 rounded md:hover:bg-red-700"
         >
           {isMobile ? "→" : "Nächster Monat →"}
         </button>
 
-        {/* Legende Popup */}
+        {/* Legende */}
         <AnimatePresence>
           {showLegend && (
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="absolute top-10 left-1/2 transform -translate-x-1/2 bg-white border rounded shadow-lg p-3 text-left z-20 w-64"
+              className="absolute top-10 left-1/2 transform -translate-x-1/2 bg-white dark:bg-gray-900 
+                         border border-gray-200 dark:border-gray-700 rounded shadow-lg p-3 text-left z-20 w-64"
             >
-              <h3 className="font-semibold text-red-700 mb-2">Legende</h3>
-              <ul className="text-sm space-y-1">
+              <h3 className="font-semibold text-red-700 dark:text-red-400 mb-2">Legende</h3>
+              <ul className="text-sm space-y-1 text-gray-700 dark:text-gray-300">
                 <li><span className="inline-block w-3 h-3 bg-gray-200 mr-2 rounded-sm"></span> Vergangene Schicht</li>
                 <li><span className="inline-block w-3 h-3 bg-yellow-200 mr-2 rounded-sm"></span> Kommende Schicht</li>
                 <li><span className="inline-block w-3 h-3 bg-green-200 mr-2 rounded-sm"></span> Nächste Schicht</li>
@@ -92,13 +88,13 @@ export default function Calendar({ shifts, currentMonthStart, setMonthStart }) {
       </div>
 
       {/* Wochentage */}
-      <div className="grid grid-cols-7 gap-1 text-center font-semibold text-red-700 mb-1">
+      <div className="grid grid-cols-7 gap-1 text-center font-semibold text-red-700 dark:text-red-400 mb-1">
         {weekdays.map((d) => (
           <div key={d}>{d}</div>
         ))}
       </div>
 
-      {/* Grid-Tage */}
+      {/* Grid */}
       <div className="grid grid-cols-7 gap-2">
         {days.map((day) => {
           const dayShifts = shiftsForDay(day);
@@ -107,15 +103,17 @@ export default function Calendar({ shifts, currentMonthStart, setMonthStart }) {
           return (
             <div
               key={day}
-              className={`p-2 rounded-lg text-center border ${
-                isCurrentMonth ? "bg-white" : "bg-gray-200 text-gray-400"
-              }`}
+              className={`p-2 rounded-lg text-center border transition
+                ${isCurrentMonth 
+                  ? "bg-white dark:bg-gray-900" 
+                  : "bg-gray-200 text-gray-400"} 
+                md:hover:bg-gray-100 dark:md:hover:bg-gray-800`}
             >
-              <div className="font-semibold text-red-700">{format(day, "d")}</div>
+              <div className="font-semibold text-red-700 dark:text-red-400">{format(day, "d")}</div>
               {dayShifts.map((shift) => {
-                let bg = "bg-yellow-200 text-yellow-800"; // Zukunft
-                if (shift.end || parseISO(shift.start) < now) bg = "bg-gray-200 text-gray-600"; // Vergangenheit
-                if (nextShift && shift.id === nextShift.id) bg = "bg-green-200 text-green-800"; // Nächste Schicht
+                let bg = "bg-yellow-200 text-yellow-800";
+                if (shift.end || parseISO(shift.start) < now) bg = "bg-gray-200 text-gray-600";
+                if (nextShift && shift.id === nextShift.id) bg = "bg-green-200 text-green-800";
 
                 return (
                   <div
