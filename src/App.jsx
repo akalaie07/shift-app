@@ -1,154 +1,154 @@
-// src/pages/AuthPage.jsx
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { startOfMonth } from "date-fns";
+import { AnimatePresence, motion } from "framer-motion";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+
 import { supabase } from "./supabaseClient";
+import useAuth from "./hooks/useAuth";
 
-export default function AuthPage() {
-  const [isLogin, setIsLogin] = useState(true);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [role, setRole] = useState("Mitarbeiter");
-  const [wage, setWage] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
+import AuthPage from "./pages/AuthPage";
+import Navbar from "./components/Navbar";
+import Stats from "./components/Stats";
+import Home from "./pages/Home";
+import CalendarPage from "./pages/CalendarPage";
+import ShiftPage from "./pages/ShiftPage";
+import Confirmed from "./pages/Confirmed";
 
-  const handleAuth = async (e) => {
-    e.preventDefault();
+
+export default function App() {
+  const user = useAuth();
+  const [shifts, setShifts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [currentMonthStart, setMonthStart] = useState(startOfMonth(new Date()));
+
+  const location = useLocation();
+
+  const fetchShifts = async (userId) => {
     setLoading(true);
-    setMessage("");
+    const { data, error } = await supabase
+      .from("shifts")
+      .select("*")
+      .eq("user_id", userId)
+      .order("start", { ascending: true });
 
-    try {
-      if (isLogin) {
-        // 🔑 LOGIN
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        if (error) throw error;
+    if (!error) setShifts(data);
+    else console.error("Fehler beim Laden der Schichten:", error.message);
 
-        // Session holen
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-
-        if (user) {
-          // Profil speichern / updaten
-          const { error: upsertError } = await supabase.from("profiles").upsert(
-            {
-              user_id: user.id,
-              first_name: firstName || null,
-              last_name: lastName || null,
-              role: role || "Mitarbeiter",
-              wage: wage ? Number(wage) : 0,
-            },
-            { onConflict: "user_id" }
-          );
-          if (upsertError) throw upsertError;
-        }
-
-        setMessage("✅ Erfolgreich eingeloggt!");
-      } else {
-        // 🆕 REGISTRIERUNG
-        if (password !== confirmPassword) {
-          setMessage("❌ Passwörter stimmen nicht überein.");
-          setLoading(false);
-          return;
-        }
-
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-        });
-
-        if (error) throw error;
-
-        // 🚨 Profil NICHT sofort speichern → erst nach Login
-        setMessage(
-          "📩 Konto erstellt! Bitte bestätige deine E-Mail. Danach kannst du dich einloggen."
-        );
-      }
-    } catch (err) {
-      console.error("Auth Fehler:", err.message);
-      setMessage("❌ Fehler: " + err.message);
-    } finally {
-      setLoading(false);
-    }
+    setLoading(false);
   };
 
-  return (
-    <form
-      onSubmit={handleAuth}
-      className="flex flex-col gap-4 max-w-md mx-auto p-6 bg-white dark:bg-gray-900 shadow rounded"
-    >
-      <h2 className="text-xl font-bold mb-2">
-        {isLogin ? "Einloggen" : "Konto erstellen"}
-      </h2>
+  useEffect(() => {
+    if (user) fetchShifts(user.id);
+    else setShifts([]);
+  }, [user]);
 
-      <input
-        type="email"
-        placeholder="E-Mail"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        required
-      />
-      <input
-        type="password"
-        placeholder="Passwort"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        required
-      />
+  const handleUpdate = async (updatedShifts) => {
+    setShifts(updatedShifts);
+    const toUpsert = updatedShifts.map((s) => ({
+      ...s,
+      user_id: user.id,
+    }));
+    const { error } = await supabase.from("shifts").upsert(toUpsert, {
+      onConflict: "id",
+    });
+    if (error) console.error("Fehler beim Speichern:", error.message);
+  };
 
-      {!isLogin && (
-        <>
-          <input
-            type="password"
-            placeholder="Passwort bestätigen"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            required
+  const handleDelete = async (id) => {
+    const { error } = await supabase.from("shifts").delete().eq("id", id);
+    if (!error) setShifts(shifts.filter((s) => s.id !== id));
+  };
+
+  if (!user) return <AuthPage />;
+  if (loading)
+    return (
+      <div className="p-6 text-center text-gray-600 dark:text-gray-300">
+        Lade Schichten…
+      </div>
+    );
+
+    return (
+    <div className="min-h-screen bg-red-50 dark:bg-gray-950 text-gray-800 dark:text-gray-200 transition-colors duration-500">
+      <Navbar />
+
+      <div className="max-w-full sm:max-w-6xl mx-auto bg-white dark:bg-gray-900 shadow-lg rounded-lg p-4 sm:p-6 mt-4 overflow-hidden transition-colors duration-500">
+        <AnimatePresence mode="wait">
+          <Routes location={location} key={location.pathname}>
+          <Route
+            path="/"
+            element={
+              <motion.div
+                key="home"
+                initial={{ opacity: 0, x: 100 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -100 }}
+                transition={{ duration: 0.4 }}
+              >
+                <Home shifts={shifts} onUpdate={handleUpdate} />
+                <Stats shifts={shifts} />
+              </motion.div>
+            }
           />
-          <input
-            type="text"
-            placeholder="Vorname"
-            value={firstName}
-            onChange={(e) => setFirstName(e.target.value)}
-          />
-          <input
-            type="text"
-            placeholder="Nachname"
-            value={lastName}
-            onChange={(e) => setLastName(e.target.value)}
-          />
-          <select value={role} onChange={(e) => setRole(e.target.value)}>
-            <option value="Mitarbeiter">Mitarbeiter</option>
-            <option value="Manager">Manager</option>
-          </select>
-          <input
-            type="number"
-            placeholder="Stundenlohn"
-            value={wage}
-            onChange={(e) => setWage(e.target.value)}
-          />
-        </>
-      )}
 
-      <button type="submit" disabled={loading}>
-        {loading ? "Bitte warten..." : isLogin ? "Einloggen" : "Registrieren"}
-      </button>
+          <Route
+            path="/kalender"
+            element={
+              <motion.div
+                key="kalender"
+                initial={{ opacity: 0, x: 100 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -100 }}
+                transition={{ duration: 0.4 }}
+              >
+                <CalendarPage
+                  shifts={shifts}
+                  currentMonthStart={currentMonthStart}
+                  setMonthStart={setMonthStart}
+                />
+              </motion.div>
+            }
+          />
 
-      {message && <p>{message}</p>}
+          <Route
+            path="/schichten"
+            element={
+              <motion.div
+                key="schichten"
+                initial={{ opacity: 0, x: 100 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -100 }}
+                transition={{ duration: 0.4 }}
+              >
+                <ShiftPage
+                  shifts={shifts}
+                  onUpdate={handleUpdate}
+                  onDelete={handleDelete}
+                />
+              </motion.div>
+            }
+          />
 
-      <p
-        className="text-sm text-blue-500 cursor-pointer"
-        onClick={() => setIsLogin(!isLogin)}
-      >
-        {isLogin
-          ? "Noch kein Konto? Registrieren"
-          : "Schon registriert? Einloggen"}
-      </p>
-    </form>
+          {/* ✅ Neue Route für Bestätigung */}
+          <Route
+            path="/confirmed"
+            element={
+              <motion.div
+                key="confirmed"
+                initial={{ opacity: 0, x: 100 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -100 }}
+                transition={{ duration: 0.4 }}
+              >
+                <Confirmed />
+              </motion.div>
+            }
+          />
+
+          {/* Fallback → Redirect zu Home */}
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+        </AnimatePresence>
+      </div>
+    </div>
   );
 }

@@ -89,7 +89,7 @@ export default function AuthPage() {
     setLoading(true);
     setMessage("");
 
-      try {
+  try {
     if (isLogin) {
       // 🔑 LOGIN
       const { error } = await supabase.auth.signInWithPassword({
@@ -103,6 +103,7 @@ export default function AuthPage() {
       } = await supabase.auth.getUser();
 
       if (user) {
+        // ✅ Nur hier Upsert, weil Session sicher aktiv ist
         await supabase.from("profiles").upsert(
           {
             user_id: user.id,
@@ -124,27 +125,13 @@ export default function AuthPage() {
         return;
       }
 
-      const { data, error } = await supabase.auth.signUp({
+      const { error } = await supabase.auth.signUp({
         email,
         password,
       });
       if (error) throw error;
 
-      // Direkt nach SignUp: wenn Session da ist → sofort Profil speichern
-      const user = data?.user || data?.session?.user;
-      if (user) {
-        await supabase.from("profiles").upsert(
-          {
-            user_id: user.id,
-            first_name: firstName || null,
-            last_name: lastName || null,
-            role: role || "Mitarbeiter",
-            wage: wage ? Number(wage) : 0,
-          },
-          { onConflict: "user_id" }
-        );
-      }
-
+      // ❌ Kein Upsert hier → Session existiert nicht bis Bestätigung
       setMessage("📩 Konto erstellt! Bitte bestätige deine E-Mail, um loszulegen.");
     }
   } catch (err) {
@@ -152,8 +139,8 @@ export default function AuthPage() {
   } finally {
     setLoading(false);
   }
+};
 
-  };
 
   return (
     <div
