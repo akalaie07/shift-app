@@ -12,6 +12,8 @@ import Stats from "./components/Stats";
 import Home from "./pages/Home";
 import CalendarPage from "./pages/CalendarPage";
 import ShiftPage from "./pages/ShiftPage";
+import Confirmed from "./pages/Confirmed";
+
 
 export default function App() {
   const user = useAuth();
@@ -65,7 +67,7 @@ export default function App() {
       </div>
     );
 
-  return (
+    return (
     <div className="min-h-screen bg-red-50 dark:bg-gray-950 text-gray-800 dark:text-gray-200 transition-colors duration-500">
       <Navbar />
 
@@ -123,6 +125,23 @@ export default function App() {
                 </motion.div>
               }
             />
+
+            {/* ✅ Neue Confirmed-Route */}
+            <Route
+              path="/confirmed"
+              element={
+                <motion.div
+                  key="confirmed"
+                  initial={{ opacity: 0, x: 100 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -100 }}
+                  transition={{ duration: 0.4 }}
+                >
+                  <Confirmed />
+                </motion.div>
+              }
+            />
+
             {/* Fallback → Redirect zu Home */}
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
