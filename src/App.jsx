@@ -130,7 +130,7 @@ export default function App() {
 
           {/* ✅ Neue Route für Bestätigung */}
           <Route
-            path="/confirmed"
+            path="/confirmed/*"
             element={
               <motion.div
                 key="confirmed"
@@ -143,6 +143,7 @@ export default function App() {
               </motion.div>
             }
           />
+
 
           {/* Fallback → Redirect zu Home */}
           <Route path="*" element={<Navigate to="/" />} />
