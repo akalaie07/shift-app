@@ -1,7 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { NavLink } from "react-router-dom";
 import { supabase } from "../supabaseClient";
-import ThemeToggle from "./ThemeToggle";
 import { LogOut, Menu, X, Home, Calendar, List, Sun, Moon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -11,12 +10,51 @@ export default function Navbar() {
   const [darkMode, setDarkMode] = useState(
     document.documentElement.classList.contains("dark")
   );
+  const [profile, setProfile] = useState(null);
+
+  // 🟢 User & Profil laden + auf Änderungen reagieren
+  useEffect(() => {
+    const fetchProfile = async (user) => {
+      if (!user) {
+        setProfile(null);
+        return;
+      }
+
+      const { data: profileData, error } = await supabase
+        .from("profiles")
+        .select("first_name, last_name")
+        .eq("id", user.id)
+        .single();
+
+      if (!error && profileData) {
+        setProfile(profileData);
+      } else {
+        setProfile(null);
+      }
+    };
+
+    // beim Start prüfen
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      fetchProfile(user);
+    });
+
+    // auf Login/Logout hören
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      fetchProfile(session?.user || null);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
   const handleLogout = async () => {
     setLoading(true);
     await supabase.auth.signOut();
     setLoading(false);
-    setMenuOpen(false); // Sidebar schließen nach Logout
+    setMenuOpen(false);
   };
 
   const toggleTheme = () => {
@@ -35,7 +73,7 @@ export default function Navbar() {
   return (
     <nav className="bg-gray-100 dark:bg-gray-950 shadow-sm relative z-50">
       <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
-        {/* Mobile: Hamburger links */}
+        {/* Mobile: Hamburger */}
         <button
           className="md:hidden p-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
           onClick={() => setMenuOpen(true)}
@@ -43,7 +81,7 @@ export default function Navbar() {
           <Menu size={22} />
         </button>
 
-        {/* Mobile: Logo zentriert */}
+        {/* Mobile: Logo */}
         <NavLink
           to="/"
           className="md:hidden flex items-center absolute left-1/2 transform -translate-x-1/2"
@@ -59,12 +97,7 @@ export default function Navbar() {
           />
         </NavLink>
 
-        {/* Mobile: ThemeToggle rechts */}
-        <div className="md:hidden">
-          <ThemeToggle />
-        </div>
-
-        {/* Desktop: Logo links */}
+        {/* Desktop: Logo */}
         <NavLink to="/" className="hidden md:flex items-center">
           <div className="bg-red-600 p-2 rounded-lg shadow-md dark:hidden">
             <img src="/freddy-logo-light.png" alt="Logo" className="h-8" />
@@ -76,7 +109,7 @@ export default function Navbar() {
           />
         </NavLink>
 
-        {/* Desktop Navigation Mitte */}
+        {/* Desktop Navigation */}
         <div className="hidden md:flex gap-6">
           <NavLink
             to="/"
@@ -110,9 +143,12 @@ export default function Navbar() {
 
         {/* Desktop Controls */}
         <div className="hidden md:flex items-center gap-3">
-          {/* Normaler Toggle */}
+          {/* Begrüßung */}
+          <span className="text-gray-700 dark:text-gray-200 font-semibold">
+            👋 Hallo, {profile?.first_name || "Gast"}
+          </span>
 
-          {/* Neuer animierter Switch */}
+          {/* Theme Switch */}
           <motion.button
             onClick={toggleTheme}
             className="p-3 rounded-full bg-gray-200 dark:bg-gray-800 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-700"
@@ -141,11 +177,10 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Sidebar mit Animation */}
+      {/* Sidebar */}
       <AnimatePresence>
         {menuOpen && (
           <>
-            {/* Overlay */}
             <motion.div
               className="fixed inset-0 bg-black bg-opacity-40 z-40"
               initial={{ opacity: 0 }}
@@ -154,7 +189,6 @@ export default function Navbar() {
               onClick={() => setMenuOpen(false)}
             />
 
-            {/* Sidebar */}
             <motion.div
               className="fixed top-0 left-0 h-full w-64 bg-gray-100 dark:bg-gray-950 shadow-lg z-50 flex flex-col"
               initial={{ x: "-100%" }}
@@ -162,7 +196,6 @@ export default function Navbar() {
               exit={{ x: "-100%" }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
             >
-              {/* Close Button */}
               <button
                 className="absolute top-4 right-4 p-2 text-gray-600 dark:text-gray-300 hover:text-red-600"
                 onClick={() => setMenuOpen(false)}
@@ -186,7 +219,11 @@ export default function Navbar() {
                 />
               </div>
 
-              {/* Divider */}
+              {/* Begrüßung */}
+              <p className="text-center text-gray-700 dark:text-gray-200 font-semibold mb-4">
+                👋 Hallo, {profile?.first_name || "Gast"}
+              </p>
+
               <div className="border-t border-gray-300 dark:border-gray-700 mb-4" />
 
               {/* Navigation */}
@@ -224,10 +261,9 @@ export default function Navbar() {
                 </NavLink>
               </div>
 
-              {/* Divider */}
               <div className="border-t border-gray-300 dark:border-gray-700 mt-4 mb-4" />
 
-              {/* ThemeToggle normal in Sidebar */}
+              {/* ThemeToggle */}
               <div className="px-4">
                 <button
                   onClick={toggleTheme}
@@ -238,10 +274,9 @@ export default function Navbar() {
                 </button>
               </div>
 
-              {/* Divider */}
               <div className="border-t border-gray-300 dark:border-gray-700 mt-4 mb-4" />
 
-              {/* Controls unten */}
+              {/* Logout unten */}
               <div className="p-4 mt-auto">
                 <button
                   onClick={handleLogout}
