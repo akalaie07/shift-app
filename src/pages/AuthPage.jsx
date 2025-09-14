@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient";
 import { motion } from "framer-motion";
 import ThemeToggle from "../components/ThemeToggle";
+import Toast from "../components/Toast"; // ✅ NEU
 
 export default function AuthPage() {
   const [email, setEmail] = useState("");
@@ -24,6 +25,7 @@ export default function AuthPage() {
 
   const [profile, setProfile] = useState(null);
 
+  // 🌙 Theme observer
   useEffect(() => {
     const observer = new MutationObserver(() => {
       const isDark = document.documentElement.classList.contains("dark");
@@ -38,6 +40,7 @@ export default function AuthPage() {
     return () => observer.disconnect();
   }, []);
 
+  // 🔑 Passwort-Stärke
   const evaluatePasswordStrength = (pwd) => {
     let strength = 0;
     if (pwd.length >= 6) strength++;
@@ -47,7 +50,7 @@ export default function AuthPage() {
     return strength;
   };
 
-  // Session beobachten & Profil laden
+  // 👤 Session beobachten & Profil laden
   useEffect(() => {
     const getProfile = async (userId) => {
       const { data, error } = await supabase
@@ -84,63 +87,69 @@ export default function AuthPage() {
     };
   }, []);
 
+  // ✅ Bestätigungs-Nachricht nach Redirect
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash.includes("type=signup")) {
+      setMessage("✅ Dein Account wurde bestätigt!");
+      setTimeout(() => setMessage(""), 5000);
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+  }, []);
+
+  // 🔐 Auth-Handler
   const handleAuth = async (e) => {
     e.preventDefault();
     setLoading(true);
     setMessage("");
 
-  try {
-    if (isLogin) {
-      // 🔑 LOGIN
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      if (error) throw error;
+    try {
+      if (isLogin) {
+        // 🔑 LOGIN
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (error) throw error;
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
 
-      if (user) {
-        // ✅ Nur hier Upsert, weil Session sicher aktiv ist
-        await supabase.from("profiles").upsert(
-          {
-            user_id: user.id,
-            first_name: firstName || null,
-            last_name: lastName || null,
-            role: role || "Mitarbeiter",
-            wage: wage ? Number(wage) : 0,
-          },
-          { onConflict: "user_id" }
-        );
+        if (user) {
+          await supabase.from("profiles").upsert(
+            {
+              user_id: user.id,
+              first_name: firstName || null,
+              last_name: lastName || null,
+              role: role || "Mitarbeiter",
+              wage: wage ? Number(wage) : 0,
+            },
+            { onConflict: "user_id" }
+          );
+        }
+
+        setMessage("✅ Erfolgreich eingeloggt!");
+      } else {
+        // 🆕 REGISTRIERUNG
+        if (password !== confirmPassword) {
+          setMessage("❌ Passwörter stimmen nicht überein.");
+          setLoading(false);
+          return;
+        }
+
+        const { error } = await supabase.auth.signUp({ email, password });
+        if (error) throw error;
+
+        // Profil wird erst nach Bestätigung+Login gespeichert
+        setMessage("📩 Konto erstellt! Bitte bestätige deine E-Mail.");
       }
-
-      setMessage("✅ Erfolgreich eingeloggt!");
-    } else {
-      // 🆕 REGISTRIERUNG
-      if (password !== confirmPassword) {
-        setMessage("❌ Passwörter stimmen nicht überein.");
-        setLoading(false);
-        return;
-      }
-
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-      });
-      if (error) throw error;
-
-      // ❌ Kein Upsert hier → Session existiert nicht bis Bestätigung
-      setMessage("📩 Konto erstellt! Bitte bestätige deine E-Mail, um loszulegen.");
+    } catch (err) {
+      setMessage(`❌ Fehler: ${err.message}`);
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    setMessage(`❌ Fehler: ${err.message}`);
-  } finally {
-    setLoading(false);
-  }
-};
-
+  };
 
   return (
     <div
@@ -286,12 +295,6 @@ export default function AuthPage() {
           </button>
         </form>
 
-        {message && (
-          <p className="mt-4 text-center text-sm text-gray-600 dark:text-gray-300">
-            {message}
-          </p>
-        )}
-
         {profile && (
           <div className="mt-6 p-4 border rounded-lg text-sm text-gray-800 dark:text-gray-200">
             <p><b>Vorname:</b> {profile.first_name}</p>
@@ -327,6 +330,18 @@ export default function AuthPage() {
           )}
         </div>
       </motion.div>
+
+      {/* ✅ Toast am Ende */}
+      <Toast
+        message={message}
+        type={
+          message.startsWith("✅")
+            ? "success"
+            : message.startsWith("❌")
+            ? "error"
+            : "info"
+        }
+      />
     </div>
   );
 }
