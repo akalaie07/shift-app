@@ -1,3 +1,5 @@
+// AuthPage.jsx
+
 import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient";
 import { motion } from "framer-motion";
@@ -17,9 +19,10 @@ export default function AuthPage() {
   const [message, setMessage] = useState("");
   const [theme, setTheme] = useState(localStorage.getItem("theme") || "light");
 
-  // States für Validierung
   const [passwordMatch, setPasswordMatch] = useState(true);
   const [passwordStrength, setPasswordStrength] = useState(0);
+
+  const [profile, setProfile] = useState(null);
 
   useEffect(() => {
     const observer = new MutationObserver(() => {
@@ -35,7 +38,6 @@ export default function AuthPage() {
     return () => observer.disconnect();
   }, []);
 
-  // Passwort-Stärke Funktion
   const evaluatePasswordStrength = (pwd) => {
     let strength = 0;
     if (pwd.length >= 6) strength++;
@@ -45,6 +47,43 @@ export default function AuthPage() {
     return strength;
   };
 
+  // Session beobachten & Profil laden
+  useEffect(() => {
+    const getProfile = async (userId) => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("user_id", userId)
+        .single();
+
+      if (!error && data) {
+        setProfile(data);
+        console.log("Profil geladen:", data);
+      }
+    };
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (data?.session?.user) {
+        getProfile(data.session.user.id);
+      }
+    });
+
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (event === "SIGNED_IN" && session?.user) {
+          getProfile(session.user.id);
+        }
+        if (event === "SIGNED_OUT") {
+          setProfile(null);
+        }
+      }
+    );
+
+    return () => {
+      listener.subscription.unsubscribe();
+    };
+  }, []);
+
   const handleAuth = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -52,15 +91,34 @@ export default function AuthPage() {
 
     try {
       if (isLogin) {
-        // Login
+        // 🔑 LOGIN
         const { error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
         if (error) throw error;
+
+        // Profil sofort aktualisieren nach Login
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (user) {
+          await supabase.from("profiles").upsert(
+            {
+              user_id: user.id,
+              first_name: firstName || null,
+              last_name: lastName || null,
+              role: role || "Mitarbeiter",
+              wage: wage ? Number(wage) : undefined,
+            },
+            { onConflict: "user_id" }
+          );
+        }
+
         setMessage("✅ Erfolgreich eingeloggt!");
       } else {
-        // Registrierung
+        // 🆕 REGISTRIERUNG
         if (password !== confirmPassword) {
           setMessage("❌ Passwörter stimmen nicht überein.");
           setLoading(false);
@@ -71,52 +129,34 @@ export default function AuthPage() {
           email,
           password,
         });
+
         if (error) throw error;
 
-        if (data?.user) {
-          console.log("Neuer User:", data.user);
+        // Wenn E-Mail-Bestätigung AUS ist → Session vorhanden → Profil sofort speichern
+        if (data?.session?.user) {
+          const user = data.session.user;
 
-          // Zuerst INSERT versuchen
-          let { error: insertError } = await supabase
-          .from("profiles")
-          .insert([
+          await supabase.from("profiles").upsert(
             {
-              id: data.user.id,
-              first_name: firstName,
-              last_name: lastName,
-              role: role,
-              wage: wage ? parseFloat(wage) : 0,
+              user_id: user.id,
+              first_name: firstName || null,
+              last_name: lastName || null,
+              role: role || "Mitarbeiter",
+              wage: wage ? Number(wage) : 0,
             },
-          ], { returning: "minimal" }); // 🚀 wichtig!
+            { onConflict: "user_id" }
+          );
 
-
-          if (insertError) {
-            console.warn("Insert fehlgeschlagen, versuche Update:", insertError.message);
-
-            // Wenn Insert fehlschlägt → Update probieren
-            const { error: updateError } = await supabase
-              .from("profiles")
-              .update({
-                first_name: firstName,
-                last_name: lastName,
-                role: role,
-                wage: wage ? parseFloat(wage) : 0,
-              })
-              .eq("id", data.user.id);
-
-            if (updateError) {
-              console.error("Fehler beim Update:", updateError);
-              setMessage("⚠️ Konto erstellt, aber Profil konnte nicht gespeichert werden.");
-            } else {
-              setMessage("📩 Bitte bestätige deine E-Mail, um loszulegen.");
-            }
-          } else {
-            setMessage("📩 Bitte bestätige deine E-Mail, um loszulegen.");
-          }
+          setMessage("✅ Konto erstellt!");
+        } else {
+          // Wenn E-Mail-Bestätigung AN ist → kein Insert möglich → Trigger erstellt leere Zeile
+          setMessage(
+            "📩 Konto erstellt! Bitte bestätige deine E-Mail. Dein Profil wird beim ersten Login gespeichert."
+          );
         }
       }
-    } catch (error) {
-      setMessage(`❌ ${error.message}`);
+    } catch (err) {
+      setMessage(`❌ Fehler: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -143,18 +183,10 @@ export default function AuthPage() {
         <div className="flex flex-col items-center mb-6">
           {theme === "light" ? (
             <div className="bg-red-600 rounded-xl p-4 shadow-lg">
-              <img
-                src="/freddy-logo-light.png"
-                alt="Freddy Fresh Logo"
-                className="h-20"
-              />
+              <img src="/freddy-logo-light.png" alt="Freddy Fresh Logo" className="h-20" />
             </div>
           ) : (
-            <img
-              src="/freddy-logo-dark.png"
-              alt="Freddy Fresh Logo"
-              className="h-24"
-            />
+            <img src="/freddy-logo-dark.png" alt="Freddy Fresh Logo" className="h-24" />
           )}
           <h1 className="text-2xl font-bold text-red-600 dark:text-red-400 mt-4">
             {isLogin ? "Willkommen zurück!" : "Konto erstellen"}
@@ -177,7 +209,6 @@ export default function AuthPage() {
             className="w-full px-4 py-2 border rounded-lg"
           />
 
-          {/* Passwort mit Stärkeanzeige */}
           <div>
             <input
               type="password"
@@ -191,7 +222,6 @@ export default function AuthPage() {
               required
               className="w-full px-4 py-2 border rounded-lg"
             />
-
             {!isLogin && (
               <div className="h-1 mt-1 rounded bg-gray-200">
                 <div
@@ -280,6 +310,15 @@ export default function AuthPage() {
           <p className="mt-4 text-center text-sm text-gray-600 dark:text-gray-300">
             {message}
           </p>
+        )}
+
+        {profile && (
+          <div className="mt-6 p-4 border rounded-lg text-sm text-gray-800 dark:text-gray-200">
+            <p><b>Vorname:</b> {profile.first_name}</p>
+            <p><b>Nachname:</b> {profile.last_name}</p>
+            <p><b>Rolle:</b> {profile.role}</p>
+            <p><b>Lohn:</b> {profile.wage} €</p>
+          </div>
         )}
 
         <div className="mt-6 text-center text-sm">

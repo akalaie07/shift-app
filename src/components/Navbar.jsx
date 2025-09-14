@@ -23,7 +23,7 @@ export default function Navbar() {
       const { data: profileData, error } = await supabase
         .from("profiles")
         .select("first_name, last_name")
-        .eq("id", user.id)
+        .eq("user_id", user.id)
         .single();
 
       if (!error && profileData) {
