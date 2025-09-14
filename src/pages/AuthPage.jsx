@@ -89,77 +89,70 @@ export default function AuthPage() {
     setLoading(true);
     setMessage("");
 
-    try {
-      if (isLogin) {
-        // 🔑 LOGIN
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        if (error) throw error;
+      try {
+    if (isLogin) {
+      // 🔑 LOGIN
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (error) throw error;
 
-        // Profil sofort aktualisieren nach Login
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-        if (user) {
-          await supabase.from("profiles").upsert(
-            {
-              user_id: user.id,
-              first_name: firstName || null,
-              last_name: lastName || null,
-              role: role || "Mitarbeiter",
-              wage: wage ? Number(wage) : undefined,
-            },
-            { onConflict: "user_id" }
-          );
-        }
-
-        setMessage("✅ Erfolgreich eingeloggt!");
-      } else {
-        // 🆕 REGISTRIERUNG
-        if (password !== confirmPassword) {
-          setMessage("❌ Passwörter stimmen nicht überein.");
-          setLoading(false);
-          return;
-        }
-
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-        });
-
-        if (error) throw error;
-
-        // Wenn E-Mail-Bestätigung AUS ist → Session vorhanden → Profil sofort speichern
-        if (data?.session?.user) {
-          const user = data.session.user;
-
-          await supabase.from("profiles").upsert(
-            {
-              user_id: user.id,
-              first_name: firstName || null,
-              last_name: lastName || null,
-              role: role || "Mitarbeiter",
-              wage: wage ? Number(wage) : 0,
-            },
-            { onConflict: "user_id" }
-          );
-
-          setMessage("✅ Konto erstellt!");
-        } else {
-          // Wenn E-Mail-Bestätigung AN ist → kein Insert möglich → Trigger erstellt leere Zeile
-          setMessage(
-            "📩 Konto erstellt! Bitte bestätige deine E-Mail. Dein Profil wird beim ersten Login gespeichert."
-          );
-        }
+      if (user) {
+        await supabase.from("profiles").upsert(
+          {
+            user_id: user.id,
+            first_name: firstName || null,
+            last_name: lastName || null,
+            role: role || "Mitarbeiter",
+            wage: wage ? Number(wage) : 0,
+          },
+          { onConflict: "user_id" }
+        );
       }
-    } catch (err) {
-      setMessage(`❌ Fehler: ${err.message}`);
-    } finally {
-      setLoading(false);
+
+      setMessage("✅ Erfolgreich eingeloggt!");
+    } else {
+      // 🆕 REGISTRIERUNG
+      if (password !== confirmPassword) {
+        setMessage("❌ Passwörter stimmen nicht überein.");
+        setLoading(false);
+        return;
+      }
+
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+      if (error) throw error;
+
+      // Direkt nach SignUp: wenn Session da ist → sofort Profil speichern
+      const user = data?.user || data?.session?.user;
+      if (user) {
+        await supabase.from("profiles").upsert(
+          {
+            user_id: user.id,
+            first_name: firstName || null,
+            last_name: lastName || null,
+            role: role || "Mitarbeiter",
+            wage: wage ? Number(wage) : 0,
+          },
+          { onConflict: "user_id" }
+        );
+      }
+
+      setMessage("📩 Konto erstellt! Bitte bestätige deine E-Mail, um loszulegen.");
     }
+  } catch (err) {
+    setMessage(`❌ Fehler: ${err.message}`);
+  } finally {
+    setLoading(false);
+  }
+
   };
 
   return (
