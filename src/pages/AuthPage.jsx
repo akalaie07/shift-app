@@ -78,16 +78,17 @@ export default function AuthPage() {
 
           // Zuerst INSERT versuchen
           let { error: insertError } = await supabase
-            .from("profiles")
-            .insert([
-              {
-                id: data.user.id,
-                first_name: firstName,
-                last_name: lastName,
-                role: role,
-                wage: wage ? parseFloat(wage) : 0,
-              },
-            ]);
+          .from("profiles")
+          .insert([
+            {
+              id: data.user.id,
+              first_name: firstName,
+              last_name: lastName,
+              role: role,
+              wage: wage ? parseFloat(wage) : 0,
+            },
+          ], { returning: "minimal" }); // 🚀 wichtig!
+
 
           if (insertError) {
             console.warn("Insert fehlgeschlagen, versuche Update:", insertError.message);
