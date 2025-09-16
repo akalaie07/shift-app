@@ -57,6 +57,7 @@ export default function ShiftList({ shifts, onUpdate, onDelete }) {
   }
 
   if (mode === "current") {
+    const start = modalData.start ? new Date(modalData.start) : new Date(); // ✅ Fix
     const shift = {
       id: `${Date.now()}-${Math.floor(Math.random() * 10000)}`,
       start: start.toISOString(),
@@ -70,6 +71,7 @@ export default function ShiftList({ shifts, onUpdate, onDelete }) {
     setMode("auto");
     return;
   }
+
 
   if (mode === "past") {
     const end = new Date(modalData.end);
