@@ -24,10 +24,9 @@ export default function ShiftList({ shifts, onUpdate, onDelete }) {
   const [askChoice, setAskChoice] = useState(false);
 
   const isMobile = useIsMobile();
-
   const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
 
-  // ✅ parseISO statt new Date, sonst falsche Zeitzone/Filterung
+  // ✅ parseISO für konsistente Zeit
   const shiftsForWeek = shifts.filter((s) => {
     if (!s.start) return false;
     const start = parseISO(s.start);
@@ -35,73 +34,63 @@ export default function ShiftList({ shifts, onUpdate, onDelete }) {
   });
 
   const saveShift = () => {
-  const start = new Date(modalData.start);
-  const diffMins = differenceInMinutes(new Date(), start); // wie viele Minuten liegt Start zurück?
+    const start = new Date(modalData.start);
+    const diffMins = differenceInMinutes(new Date(), start);
 
-  if (mode === "auto") {
-    // ✅ Wenn Startzeit in der Vergangenheit UND max. 2h zurück
-    if (diffMins > 0 && diffMins <= 120) {
-      setAskChoice(true);
+    if (mode === "auto") {
+      if (diffMins > 0 && diffMins <= 120) {
+        setAskChoice(true);
+        return;
+      }
+      if (diffMins <= 0) setMode("current");
+      if (diffMins > 120) setMode("past");
+    }
+
+    if (mode === "current") {
+      const startTime = modalData.start ? new Date(modalData.start) : new Date();
+      const shift = {
+        id: `${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+        start: startTime.toISOString(),
+        end: null,
+        pauseMinutes: 0,
+        durationMinutes: null,
+        running: true,
+        actualStart: startTime.toISOString(), // ✅ direkt mitgeben
+      };
+      onUpdate([...shifts, shift]);
+      setModalOpen(false);
+      setMode("auto");
       return;
     }
 
-    // Wenn Startzeit in der Zukunft → immer aktuelle Schicht
-    if (diffMins <= 0) {
-      setMode("current");
-    }
+    if (mode === "past") {
+      const end = new Date(modalData.end);
+      const pauseMinutes = parseInt(modalData.pause) || 0;
 
-    // Wenn älter als 2h → automatisch "Vergangen"
-    if (diffMins > 120) {
-      setMode("past");
-    }
-  }
+      if (end <= start) {
+        alert("Ende muss nach Start liegen.");
+        return;
+      }
 
-  if (mode === "current") {
-    const start = modalData.start ? new Date(modalData.start) : new Date(); // ✅ Fix
-    const shift = {
-      id: `${Date.now()}-${Math.floor(Math.random() * 10000)}`,
-      start: start.toISOString(),
-      end: null,
-      pauseMinutes: 0,
-      durationMinutes: null,
-      running: true,
-    };
-    onUpdate([...shifts, shift]);
-    setModalOpen(false);
-    setMode("auto");
-    return;
-  }
+      const durationMinutes = Math.max(
+        differenceInMinutes(end, start) - pauseMinutes,
+        0
+      );
 
-
-  if (mode === "past") {
-    const end = new Date(modalData.end);
-    const pauseMinutes = parseInt(modalData.pause) || 0;
-
-    if (end <= start) {
-      alert("Ende muss nach Start liegen.");
+      const shift = {
+        id: `${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+        start: start.toISOString(),
+        end: end.toISOString(),
+        pauseMinutes,
+        durationMinutes,
+        running: false,
+      };
+      onUpdate([...shifts, shift]);
+      setModalOpen(false);
+      setMode("auto");
       return;
     }
-
-    const durationMinutes = Math.max(
-      differenceInMinutes(end, start) - pauseMinutes,
-      0
-    );
-
-    const shift = {
-      id: `${Date.now()}-${Math.floor(Math.random() * 10000)}`,
-      start: start.toISOString(),
-      end: end.toISOString(),
-      pauseMinutes,
-      durationMinutes,
-      running: false,
-    };
-    onUpdate([...shifts, shift]);
-    setModalOpen(false);
-    setMode("auto");
-    return;
-  }
-};
-
+  };
 
   const handleEdit = (shift) => {
     const newTime = prompt(
@@ -111,7 +100,11 @@ export default function ShiftList({ shifts, onUpdate, onDelete }) {
     if (newTime) {
       const updated = shifts.map((s) =>
         s.id === shift.id
-          ? { ...s, start: new Date(newTime.replace(" ", "T")).toISOString() }
+          ? {
+              ...s,
+              start: new Date(newTime.replace(" ", "T")).toISOString(),
+              actualStart: new Date(newTime.replace(" ", "T")).toISOString(), // ✅ mit aktualisieren
+            }
           : s
       );
       onUpdate(updated);
@@ -178,8 +171,12 @@ export default function ShiftList({ shifts, onUpdate, onDelete }) {
                 key={shift.id}
                 className="border-t border-gray-200 dark:border-gray-700"
               >
-                <td className="p-2">{format(parseISO(shift.start), "dd.MM.yyyy")}</td>
-                <td className="p-2">{format(parseISO(shift.start), "HH:mm")}</td>
+                <td className="p-2">
+                  {format(parseISO(shift.start), "dd.MM.yyyy")}
+                </td>
+                <td className="p-2">
+                  {format(parseISO(shift.start), "HH:mm")}
+                </td>
                 <td className="p-2">
                   {shift.end ? format(parseISO(shift.end), "HH:mm") : "-"}
                 </td>
@@ -274,7 +271,9 @@ export default function ShiftList({ shifts, onUpdate, onDelete }) {
               transition={{ duration: 0.2 }}
             >
               <h3 className="text-lg font-bold text-red-700 dark:text-red-400 mb-4">
-                {mode === "past" ? "Vergangene Schicht eintragen" : "Schicht eintragen"}
+                {mode === "past"
+                  ? "Vergangene Schicht eintragen"
+                  : "Schicht eintragen"}
               </h3>
 
               <div className="flex flex-col gap-2">
@@ -282,7 +281,9 @@ export default function ShiftList({ shifts, onUpdate, onDelete }) {
                 <input
                   type="datetime-local"
                   value={modalData.start}
-                  onChange={(e) => setModalData({ ...modalData, start: e.target.value })}
+                  onChange={(e) =>
+                    setModalData({ ...modalData, start: e.target.value })
+                  }
                   className="border rounded px-2 py-1 bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-white border-gray-300 dark:border-gray-700"
                 />
 
@@ -292,23 +293,33 @@ export default function ShiftList({ shifts, onUpdate, onDelete }) {
                     <input
                       type="datetime-local"
                       value={modalData.end}
-                      onChange={(e) => setModalData({ ...modalData, end: e.target.value })}
+                      onChange={(e) =>
+                        setModalData({ ...modalData, end: e.target.value })
+                      }
                       className="border rounded px-2 py-1 bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-white border-gray-300 dark:border-gray-700"
                     />
 
-                    <label className="text-sm font-semibold">Pause (Minuten)</label>
+                    <label className="text-sm font-semibold">
+                      Pause (Minuten)
+                    </label>
                     <input
                       type="number"
                       min="0"
                       value={modalData.pause}
-                      onChange={(e) => setModalData({ ...modalData, pause: e.target.value })}
+                      onChange={(e) =>
+                        setModalData({ ...modalData, pause: e.target.value })
+                      }
                       className="border rounded px-2 py-1 bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-white border-gray-300 dark:border-gray-700"
                     />
                   </>
                 )}
               </div>
 
-              <div className={`flex gap-2 mt-4 ${isMobile ? "flex-col" : "justify-end"}`}>
+              <div
+                className={`flex gap-2 mt-4 ${
+                  isMobile ? "flex-col" : "justify-end"
+                }`}
+              >
                 <button
                   onClick={() => {
                     setModalOpen(false);
