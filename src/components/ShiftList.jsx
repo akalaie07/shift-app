@@ -26,27 +26,27 @@ export default function ShiftList({ shifts, onUpdate, onDelete }) {
   const isMobile = useIsMobile();
 
   const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
-  const shiftsForWeek = shifts.filter(
-    (s) =>
-      s.start &&
-      new Date(s.start) >= currentWeekStart &&
-      new Date(s.start) <= weekEnd
-  );
+
+  // ✅ parseISO statt new Date, sonst falsche Zeitzone/Filterung
+  const shiftsForWeek = shifts.filter((s) => {
+    if (!s.start) return false;
+    const start = parseISO(s.start);
+    return start >= currentWeekStart && start <= weekEnd;
+  });
 
   const saveShift = () => {
     const start = new Date(modalData.start);
-    const diffMins = differenceInMinutes(new Date(), start);
+    const diffMins = differenceInMinutes(start, new Date()); // Start vs jetzt
 
-    // Auto-Check → Entscheidung anzeigen
+    // ✅ Wenn Startzeit mehr als 2h in der Vergangenheit → Frage
     if (mode === "auto") {
-      if (diffMins >= 120) {
+      if (diffMins <= -120) {
         setAskChoice(true);
         return;
       }
       setMode("current");
     }
 
-    // Aktuelle Schicht → nur Startzeit speichern
     if (mode === "current") {
       const shift = {
         id: `${Date.now()}-${Math.floor(Math.random() * 10000)}`,
@@ -62,7 +62,6 @@ export default function ShiftList({ shifts, onUpdate, onDelete }) {
       return;
     }
 
-    // Vergangene Schicht → Start, Ende, Pause
     if (mode === "past") {
       const end = new Date(modalData.end);
       const pauseMinutes = parseInt(modalData.pause) || 0;
@@ -137,7 +136,8 @@ export default function ShiftList({ shifts, onUpdate, onDelete }) {
           {isMobile ? "←" : "< Vorherige Woche"}
         </button>
         <span className="font-semibold text-red-700 dark:text-red-400">
-          {format(currentWeekStart, "dd.MM.yyyy")} - {format(weekEnd, "dd.MM.yyyy")}
+          {format(currentWeekStart, "dd.MM.yyyy")} -{" "}
+          {format(weekEnd, "dd.MM.yyyy")}
         </span>
         <button
           onClick={() => setWeekStart(addWeeks(currentWeekStart, 1))}
@@ -147,7 +147,7 @@ export default function ShiftList({ shifts, onUpdate, onDelete }) {
         </button>
       </div>
 
-      {/* Tabelle */}
+      {/* Desktop Tabelle */}
       {!isMobile && (
         <table className="w-full border-collapse rounded-lg overflow-hidden shadow-sm">
           <thead className="bg-gray-100 dark:bg-gray-800 text-left">
@@ -162,7 +162,10 @@ export default function ShiftList({ shifts, onUpdate, onDelete }) {
           </thead>
           <tbody>
             {shiftsForWeek.map((shift) => (
-              <tr key={shift.id} className="border-t border-gray-200 dark:border-gray-700">
+              <tr
+                key={shift.id}
+                className="border-t border-gray-200 dark:border-gray-700"
+              >
                 <td className="p-2">{format(parseISO(shift.start), "dd.MM.yyyy")}</td>
                 <td className="p-2">{format(parseISO(shift.start), "HH:mm")}</td>
                 <td className="p-2">
@@ -188,6 +191,43 @@ export default function ShiftList({ shifts, onUpdate, onDelete }) {
             ))}
           </tbody>
         </table>
+      )}
+
+      {/* Mobile Karten */}
+      {isMobile && (
+        <div className="flex flex-col gap-3">
+          {shiftsForWeek.map((shift) => (
+            <div
+              key={shift.id}
+              className="p-4 rounded-xl shadow-md bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700"
+            >
+              <div className="font-bold text-red-600 dark:text-red-400 mb-1">
+                {format(parseISO(shift.start), "EEE, dd.MM.yyyy")}
+              </div>
+              <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+                <Clock size={16} /> {format(parseISO(shift.start), "HH:mm")} –{" "}
+                {shift.end ? format(parseISO(shift.end), "HH:mm") : "-"}
+              </div>
+              <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+                <Coffee size={16} /> {shift.pauseMinutes || 0} min Pause
+              </div>
+              <div className="mt-2 flex justify-end gap-3">
+                <button
+                  onClick={() => handleEdit(shift)}
+                  className="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
+                >
+                  <Edit2 size={16} />
+                </button>
+                <button
+                  onClick={() => onDelete(shift.id)}
+                  className="p-2 rounded hover:bg-red-100 dark:hover:bg-red-900 text-red-600"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
 
       {/* Floating Button Mobile */}
