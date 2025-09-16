@@ -37,7 +37,7 @@ export default function ShiftList({ shifts, onUpdate, onDelete }) {
     const start = new Date(modalData.start);
     const diffMins = differenceInMinutes(new Date(), start);
 
-    // Entscheidung, falls 2h alt
+    // Auto-Check → Entscheidung anzeigen
     if (mode === "auto") {
       if (diffMins >= 120) {
         setAskChoice(true);
@@ -46,6 +46,7 @@ export default function ShiftList({ shifts, onUpdate, onDelete }) {
       setMode("current");
     }
 
+    // Aktuelle Schicht → nur Startzeit speichern
     if (mode === "current") {
       const shift = {
         id: `${Date.now()}-${Math.floor(Math.random() * 10000)}`,
@@ -61,6 +62,7 @@ export default function ShiftList({ shifts, onUpdate, onDelete }) {
       return;
     }
 
+    // Vergangene Schicht → Start, Ende, Pause
     if (mode === "past") {
       const end = new Date(modalData.end);
       const pauseMinutes = parseInt(modalData.pause) || 0;
