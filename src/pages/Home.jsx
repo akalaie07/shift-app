@@ -14,18 +14,20 @@ export default function Home({ shifts, onUpdate }) {
 
   // ⏱️ Auto-Start für Schichten
   useEffect(() => {
+    let hasChanged = false;
     const updatedShifts = shifts.map((s) => {
       if (!s.running && !s.end && s.start && new Date(s.start) <= now) {
-        // ✅ Startzeit übernehmen (nicht "jetzt")
+        hasChanged = true;
         return { ...s, running: true, actualStart: s.actualStart || s.start };
       }
       return s;
     });
 
-    if (JSON.stringify(updatedShifts) !== JSON.stringify(shifts)) {
+    if (hasChanged) {
       onUpdate(updatedShifts);
     }
   }, [now, shifts, onUpdate]);
+
 
   // 🔴 Laufende Schicht finden
   const runningShift = useMemo(
@@ -134,7 +136,10 @@ export default function Home({ shifts, onUpdate }) {
                 Schicht läuft
               </h2>
               <p className="text-2xl">
-                Gestartet: {format(parseISO(runningShift.actualStart), "HH:mm")}
+                Gestartet:{" "}
+                {runningShift?.actualStart
+                  ? format(parseISO(runningShift.actualStart), "HH:mm")
+                  : "-"}
               </p>
               <p className="text-2xl mt-2">Dauer: {liveDuration}</p>
             </div>
