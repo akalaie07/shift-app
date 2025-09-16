@@ -16,10 +16,12 @@ export default function Home({ shifts, onUpdate }) {
   useEffect(() => {
     const updatedShifts = shifts.map((s) => {
       if (!s.running && !s.end && s.start && new Date(s.start) <= now) {
-        return { ...s, running: true, actualStart: new Date().toISOString() };
+        // ✅ Startzeit aus der Schicht übernehmen, nicht "jetzt"
+        return { ...s, running: true, actualStart: s.start };
       }
       return s;
     });
+
     if (JSON.stringify(updatedShifts) !== JSON.stringify(shifts)) {
       onUpdate(updatedShifts);
     }
@@ -45,7 +47,7 @@ export default function Home({ shifts, onUpdate }) {
   if (runningShift?.actualStart) {
     const startTime = new Date(runningShift.actualStart);
     const minutesPassed = Math.floor((now - startTime) / 60000);
-    const maxDuration = 180;
+    const maxDuration = 180; // 3h als Beispiel
     liveDuration = `${Math.floor(minutesPassed / 60)}h ${minutesPassed % 60}min`;
     progressPercent = Math.min((minutesPassed / maxDuration) * 100, 100);
   }
@@ -129,8 +131,7 @@ export default function Home({ shifts, onUpdate }) {
                 Schicht läuft
               </h2>
               <p className="text-2xl">
-                Gestartet:{" "}
-                {format(new Date(runningShift.actualStart), "HH:mm")}
+                Gestartet: {format(new Date(runningShift.actualStart), "HH:mm")}
               </p>
               <p className="text-2xl mt-2">Dauer: {liveDuration}</p>
             </div>
