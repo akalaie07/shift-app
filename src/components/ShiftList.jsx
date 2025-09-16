@@ -35,61 +35,71 @@ export default function ShiftList({ shifts, onUpdate, onDelete }) {
   });
 
   const saveShift = () => {
-    const start = new Date(modalData.start);
-    const diffMins = differenceInMinutes(start, new Date()); // Start vs jetzt
+  const start = new Date(modalData.start);
+  const diffMins = differenceInMinutes(new Date(), start); // wie viele Minuten liegt Start zurück?
 
-    // ✅ Wenn Startzeit mehr als 2h in der Vergangenheit → Frage
-    if (mode === "auto") {
-      if (diffMins <= -120) {
-        setAskChoice(true);
-        return;
-      }
+  if (mode === "auto") {
+    // ✅ Wenn Startzeit in der Vergangenheit UND max. 2h zurück
+    if (diffMins > 0 && diffMins <= 120) {
+      setAskChoice(true);
+      return;
+    }
+
+    // Wenn Startzeit in der Zukunft → immer aktuelle Schicht
+    if (diffMins <= 0) {
       setMode("current");
     }
 
-    if (mode === "current") {
-      const shift = {
-        id: `${Date.now()}-${Math.floor(Math.random() * 10000)}`,
-        start: start.toISOString(),
-        end: null,
-        pauseMinutes: 0,
-        durationMinutes: null,
-        running: true,
-      };
-      onUpdate([...shifts, shift]);
-      setModalOpen(false);
-      setMode("auto");
+    // Wenn älter als 2h → automatisch "Vergangen"
+    if (diffMins > 120) {
+      setMode("past");
+    }
+  }
+
+  if (mode === "current") {
+    const shift = {
+      id: `${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+      start: start.toISOString(),
+      end: null,
+      pauseMinutes: 0,
+      durationMinutes: null,
+      running: true,
+    };
+    onUpdate([...shifts, shift]);
+    setModalOpen(false);
+    setMode("auto");
+    return;
+  }
+
+  if (mode === "past") {
+    const end = new Date(modalData.end);
+    const pauseMinutes = parseInt(modalData.pause) || 0;
+
+    if (end <= start) {
+      alert("Ende muss nach Start liegen.");
       return;
     }
 
-    if (mode === "past") {
-      const end = new Date(modalData.end);
-      const pauseMinutes = parseInt(modalData.pause) || 0;
+    const durationMinutes = Math.max(
+      differenceInMinutes(end, start) - pauseMinutes,
+      0
+    );
 
-      if (end <= start) {
-        alert("Ende muss nach Start liegen.");
-        return;
-      }
+    const shift = {
+      id: `${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+      start: start.toISOString(),
+      end: end.toISOString(),
+      pauseMinutes,
+      durationMinutes,
+      running: false,
+    };
+    onUpdate([...shifts, shift]);
+    setModalOpen(false);
+    setMode("auto");
+    return;
+  }
+};
 
-      const durationMinutes = Math.max(
-        differenceInMinutes(end, start) - pauseMinutes,
-        0
-      );
-
-      const shift = {
-        id: `${Date.now()}-${Math.floor(Math.random() * 10000)}`,
-        start: start.toISOString(),
-        end: end.toISOString(),
-        pauseMinutes,
-        durationMinutes,
-        running: false,
-      };
-      onUpdate([...shifts, shift]);
-      setModalOpen(false);
-      setMode("auto");
-      return;
-    }
-  };
 
   const handleEdit = (shift) => {
     const newTime = prompt(
