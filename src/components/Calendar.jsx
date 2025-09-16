@@ -187,7 +187,7 @@ export default function Calendar({ shifts }) {
                 <ul className="space-y-1 text-gray-700 dark:text-gray-300">
                   {shiftsForDay(selectedDay).map((shift) => (
                     <li key={shift.id}>
-                      {format(parseISO(shift.start), "HH:mm")}{" "}
+                      {format(parseISO(shift.start),  "HH:mm")}{" "}
                       {shift.end && `- ${format(parseISO(shift.end), "HH:mm")}`}
                     </li>
                   ))}

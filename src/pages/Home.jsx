@@ -1,178 +1,114 @@
-// src/Home.jsx
-import React, { useState, useEffect, useMemo } from "react";
-import { parseISO, differenceInMinutes, format } from "date-fns";
-import { motion } from "framer-motion";
+// src/components/ShiftList.jsx
+import React, { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  startOfWeek,
+  endOfWeek,
+  addWeeks,
+  subWeeks,
+  format,
+  parseISO,
+  differenceInMinutes,
+} from "date-fns";
+import useIsMobile from "../hooks/useIsMobile";
+import { Plus, Clock, Coffee, Trash2, Edit2 } from "lucide-react";
 
-export default function Home({ shifts, onUpdate }) {
-  const [now, setNow] = useState(new Date());
+export default function ShiftList({ shifts, onUpdate, onDelete }) {
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalData, setModalData] = useState({ start: "", end: "", pause: 0 });
+  const [currentWeekStart, setWeekStart] = useState(
+    startOfWeek(new Date(), { weekStartsOn: 1 })
+  );
 
-  // ⏰ Uhrzeit jede Sekunde aktualisieren
-  useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
+  const [mode, setMode] = useState("auto"); // "auto" | "past" | "current"
+  const [askChoice, setAskChoice] = useState(false);
 
-  // ⏱️ Auto-Start für Schichten
-  useEffect(() => {
-    const updatedShifts = shifts.map((s) => {
-      if (!s.running && !s.end && s.start && new Date(s.start) <= now) {
-        // ✅ Startzeit aus der Schicht übernehmen, nicht "jetzt"
-        return { ...s, running: true, actualStart: s.start };
+  const isMobile = useIsMobile();
+  const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
+
+  const shiftsForWeek = shifts.filter((s) => {
+    if (!s.start) return false;
+    const start = parseISO(s.start);
+    return start >= currentWeekStart && start <= weekEnd;
+  });
+
+  const saveShift = () => {
+    const start = new Date(modalData.start);
+    const diffMins = differenceInMinutes(new Date(), start);
+
+    if (mode === "auto") {
+      if (diffMins > 0 && diffMins <= 120) {
+        setAskChoice(true);
+        return;
       }
-      return s;
-    });
-
-    if (JSON.stringify(updatedShifts) !== JSON.stringify(shifts)) {
-      onUpdate(updatedShifts);
+      if (diffMins <= 0) setMode("current");
+      if (diffMins > 120) setMode("past");
     }
-  }, [now, shifts, onUpdate]);
 
-  const runningShift = useMemo(
-    () => shifts.find((s) => s.running && !s.end),
-    [shifts]
-  );
+    if (mode === "current") {
+      const startTime = modalData.start ? new Date(modalData.start) : new Date();
+      const shift = {
+        id: `${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+        start: startTime.toISOString(),
+        end: null,
+        pauseMinutes: 0,
+        durationMinutes: null,
+        running: true,
+        actualStart: startTime.toISOString(), // ✅ direkt mitgeben
+      };
+      onUpdate([...shifts, shift]);
+      setModalOpen(false);
+      setMode("auto");
+      return;
+    }
 
-  const futureShifts = useMemo(
-    () =>
-      shifts
-        .filter((s) => !s.running && !s.end && s.start && new Date(s.start) > now)
-        .sort((a, b) => new Date(a.start) - new Date(b.start)),
-    [shifts, now]
-  );
-  const nextShift = futureShifts[0];
+    if (mode === "past") {
+      const end = new Date(modalData.end);
+      const pauseMinutes = parseInt(modalData.pause) || 0;
 
-  // ⌛ Laufende Schicht Fortschritt
-  let liveDuration = "",
-    progressPercent = 0;
-  if (runningShift?.actualStart) {
-    const startTime = new Date(runningShift.actualStart);
-    const minutesPassed = Math.floor((now - startTime) / 60000);
-    const maxDuration = 180; // 3h als Beispiel
-    liveDuration = `${Math.floor(minutesPassed / 60)}h ${minutesPassed % 60}min`;
-    progressPercent = Math.min((minutesPassed / maxDuration) * 100, 100);
-  }
+      if (end <= start) {
+        alert("Ende muss nach Start liegen.");
+        return;
+      }
 
-  const handleEnd = (shift) => {
-    let endTime = new Date().toISOString();
-    let pauseMinutes = 0;
-
-    if (
-      !window.confirm(
-        `Endzeit jetzt übernehmen? (${format(new Date(endTime), "HH:mm")})`
-      )
-    ) {
-      const manual = prompt(
-        "Endzeit eingeben (YYYY-MM-DD HH:MM):",
-        format(new Date(), "yyyy-MM-dd HH:mm")
+      const durationMinutes = Math.max(
+        differenceInMinutes(end, start) - pauseMinutes,
+        0
       );
-      if (manual) endTime = new Date(manual.replace(" ", "T")).toISOString();
+
+      const shift = {
+        id: `${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+        start: start.toISOString(),
+        end: end.toISOString(),
+        pauseMinutes,
+        durationMinutes,
+        running: false,
+      };
+      onUpdate([...shifts, shift]);
+      setModalOpen(false);
+      setMode("auto");
+      return;
     }
+  };
 
-    if (window.confirm("Hattest du Pause?")) {
-      const pauseInput = prompt("Wie viele Minuten Pause?");
-      if (pauseInput) pauseMinutes = parseInt(pauseInput);
+  const handleEdit = (shift) => {
+    const newTime = prompt(
+      "Neue Startzeit eingeben (YYYY-MM-DD HH:MM):",
+      format(parseISO(shift.start), "yyyy-MM-dd HH:mm")
+    );
+    if (newTime) {
+      const updated = shifts.map((s) =>
+        s.id === shift.id
+          ? { ...s, start: new Date(newTime.replace(" ", "T")).toISOString() }
+          : s
+      );
+      onUpdate(updated);
     }
-
-    const updated = shifts.map((s) => {
-      if (s.id === shift.id) {
-        const durationMinutes = Math.max(
-          differenceInMinutes(
-            new Date(endTime),
-            new Date(s.actualStart || s.start)
-          ) - pauseMinutes,
-          0
-        );
-        return {
-          ...s,
-          end: endTime,
-          pauseMinutes,
-          durationMinutes,
-          running: false,
-        };
-      }
-      return s;
-    });
-
-    onUpdate(updated);
   };
 
   return (
-    <div className="mb-6 flex justify-center">
-      {runningShift ? (
-        // 🔴 Laufende Schicht
-        <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.8 }}
-          transition={{ duration: 0.3 }}
-          className="bg-white dark:bg-gray-900 p-12 rounded-2xl shadow-2xl relative flex flex-col items-center"
-        >
-          <div className="relative w-72 h-72 mb-8">
-            <svg className="w-72 h-72" viewBox="0 0 36 36">
-              <path
-                className="text-gray-300 dark:text-gray-700"
-                strokeWidth="3"
-                stroke="currentColor"
-                fill="none"
-                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-              />
-              <motion.path
-                strokeWidth="3"
-                stroke="#22c55e"
-                fill="none"
-                strokeDasharray="100"
-                strokeDashoffset={100 - progressPercent}
-                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                transition={{ ease: "linear", duration: 1 }}
-              />
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-center font-semibold text-gray-800 dark:text-gray-200">
-              <h2 className="text-3xl font-bold text-red-700 dark:text-red-400 mb-2">
-                Schicht läuft
-              </h2>
-              <p className="text-2xl">
-                Gestartet: {format(new Date(runningShift.actualStart), "HH:mm")}
-              </p>
-              <p className="text-2xl mt-2">Dauer: {liveDuration}</p>
-            </div>
-          </div>
-          <button
-            onClick={() => handleEnd(runningShift)}
-            className="mt-6 bg-red-600 text-white px-8 py-4 text-xl rounded-2xl transition md:hover:bg-red-700"
-          >
-            Schicht beenden
-          </button>
-        </motion.div>
-      ) : nextShift ? (
-        // 🟡 Nächste Schicht
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -20 }}
-          transition={{ duration: 0.3 }}
-          className="bg-white dark:bg-gray-900 p-12 rounded-2xl shadow-2xl flex flex-col items-center"
-        >
-          <h2 className="text-4xl font-bold text-red-700 dark:text-red-400 mb-4">
-            Nächste Schicht
-          </h2>
-          <p className="text-3xl text-gray-800 dark:text-gray-200 font-semibold">
-            {format(parseISO(nextShift.start), "dd.MM.yyyy HH:mm")}
-          </p>
-        </motion.div>
-      ) : (
-        // ⚪ Keine Schicht
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -20 }}
-          transition={{ duration: 0.3 }}
-          className="bg-white dark:bg-gray-900 p-12 rounded-2xl shadow-2xl flex flex-col items-center"
-        >
-          <h2 className="text-4xl font-bold text-red-700 dark:text-red-400">
-            Du hast aktuell keine Schicht
-          </h2>
-        </motion.div>
-      )}
+    <div id="schichten" className="relative">
+      {/* ... dein restlicher Code bleibt gleich ... */}
     </div>
   );
 }
