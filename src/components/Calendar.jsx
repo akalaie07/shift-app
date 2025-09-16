@@ -167,6 +167,43 @@ export default function Calendar({ shifts }) {
             );
           })}
         </div>
+
+        {/* Tooltip (Mobile) */}
+        <AnimatePresence>
+          {selectedDay && isMobile && (
+            <motion.div
+              key="day-details"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              className="fixed inset-x-4 bottom-10 sm:bottom-6 bg-white dark:bg-gray-900 
+                        shadow-lg border border-gray-200 dark:border-gray-700 
+                        p-4 rounded-xl z-50 max-h-[70vh] overflow-y-auto"
+            >
+              <h3 className="font-bold text-red-700 dark:text-red-400 mb-2">
+                {format(selectedDay, "EEEE, dd.MM.yyyy")}
+              </h3>
+              {shiftsForDay(selectedDay).length > 0 ? (
+                <ul className="space-y-1 text-gray-700 dark:text-gray-300">
+                  {shiftsForDay(selectedDay).map((shift) => (
+                    <li key={shift.id}>
+                      {format(parseISO(shift.start), "HH:mm")}{" "}
+                      {shift.end && `- ${format(parseISO(shift.end), "HH:mm")}`}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-gray-500 dark:text-gray-400">Keine Schicht</p>
+              )}
+              <button
+                onClick={() => setSelectedDay(null)}
+                className="mt-3 w-full px-3 py-2 rounded bg-red-600 text-white hover:bg-red-700"
+              >
+                Schließen
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     );
   };
